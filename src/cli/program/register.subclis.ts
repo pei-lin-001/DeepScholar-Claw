@@ -178,6 +178,15 @@ const entries: SubCliEntry[] = [
     },
   },
   {
+    name: "research",
+    description: "DeepScholar research pipeline tools",
+    hasSubcommands: true,
+    register: async (program) => {
+      const mod = await import("../research-cli.js");
+      mod.registerResearchCli(program);
+    },
+  },
+  {
     name: "hooks",
     description: "Manage internal agent hooks",
     hasSubcommands: true,

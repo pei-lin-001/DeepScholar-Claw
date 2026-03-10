@@ -1,6 +1,21 @@
 import { pathToFileURL } from "node:url";
 import type { ServiceDescriptor } from "@deepscholar/contracts";
 
+export {
+  buildProjectGraphInNeo4j,
+  ingestFromSearch,
+  parsePdfWithGrobid,
+  queryProjectLiterature,
+  searchPapers,
+  type PaperIntelGraphBuildOptions,
+  type PaperIntelGrobidParseOptions,
+  type PaperIntelHomeOptions,
+  type PaperIntelIngestOptions,
+  type PaperIntelQueryOptions,
+  type PaperIntelSearchOptions,
+  type SearchSource,
+} from "./paper-intel.ts";
+
 export const paperIntelService: ServiceDescriptor = {
   id: "paper-intel",
   displayName: "Paper Intelligence",

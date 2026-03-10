@@ -18,6 +18,16 @@ const { nodesAction, registerNodesCli } = vi.hoisted(() => {
   return { nodesAction: action, registerNodesCli: register };
 });
 
+const { researchAction, registerResearchCli } = vi.hoisted(() => {
+  const action = vi.fn();
+  const register = vi.fn((program: Command) => {
+    const research = program.command("research");
+    const literature = research.command("literature");
+    literature.command("search").action(action);
+  });
+  return { researchAction: action, registerResearchCli: register };
+});
+
 const configModule = vi.hoisted(() => ({
   loadConfig: vi.fn(),
   readConfigFileSnapshot: vi.fn(),
@@ -25,6 +35,7 @@ const configModule = vi.hoisted(() => ({
 
 vi.mock("../acp-cli.js", () => ({ registerAcpCli }));
 vi.mock("../nodes-cli.js", () => ({ registerNodesCli }));
+vi.mock("../research-cli.js", () => ({ registerResearchCli }));
 vi.mock("../../config/config.js", () => configModule);
 
 const { loadValidatedConfigForPluginRegistration, registerSubCliByName, registerSubCliCommands } =
@@ -54,6 +65,8 @@ describe("registerSubCliCommands", () => {
     acpAction.mockClear();
     registerNodesCli.mockClear();
     nodesAction.mockClear();
+    registerResearchCli.mockClear();
+    researchAction.mockClear();
     configModule.loadConfig.mockReset();
     configModule.readConfigFileSnapshot.mockReset();
   });
@@ -119,6 +132,20 @@ describe("registerSubCliCommands", () => {
 
     expect(registerNodesCli).toHaveBeenCalledTimes(1);
     expect(nodesAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("dispatches research subcommand via lazy placeholder", async () => {
+    const program = createRegisteredProgram(
+      ["node", "openclaw", "research", "literature", "search"],
+      "openclaw",
+    );
+
+    expect(program.commands.map((cmd) => cmd.name())).toEqual(["research"]);
+
+    await program.parseAsync(["research", "literature", "search"], { from: "user" });
+
+    expect(registerResearchCli).toHaveBeenCalledTimes(1);
+    expect(researchAction).toHaveBeenCalledTimes(1);
   });
 
   it("replaces placeholder when registering a subcommand by name", async () => {

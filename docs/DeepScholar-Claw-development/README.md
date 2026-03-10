@@ -20,4 +20,5 @@ summary: "Project-specific development notes, plans, and implementation records.
 - `ARCHITECTURE.md`：当前工程分层与目录边界
 - `PHASE_1_PLAN.md`：第一阶段计划看板
 - `PHASE_2_PLAN.md`：第二阶段计划看板（计划冻结 + 证据账本）
+- `SPEC_PHASE_1_LITERATURE_PLAN.md`：规格 Phase 1 完成记录（文献模块）
 - `WORKLOG.md`：实施记录

@@ -43,6 +43,27 @@
 
 - contracts 与 provenance 的定向单测保持在 60 秒内通过（使用 `perl -e 'alarm 60; ...'` 约束）。
 
+### 新增交付（Spec Phase 1：文献模块完整跑通）
+
+- 现在你可以把“找论文”从一句空话变成一条可执行流水线：
+  - `openclaw research literature search`：从 Semantic Scholar / OpenAlex 搜索论文元数据，输出列表（可 JSON）。
+  - `openclaw research literature ingest`：把搜索结果做去重、质量过滤，然后落盘到 `~/.deepscholar/projects/<projectId>/literature/papers/`。
+- 现在你可以把 PDF 变成可追溯的结构化产物：
+  - `openclaw research literature grobid`：把本地 PDF 送去 GROBID 解析，并把 TEI XML 保存到 `.../literature/parsed/`。
+  - 这一步的意义是：后续做引用核对、章节证据卡片、表格/图表抽取时，不再靠“看 PDF 猜结构”。
+- 现在你可以把“引用关系”落到知识图谱里：
+  - 在 `services/paper-intel` 内实现了 GraphStore 接口，并提供 Neo4j 适配器。
+  - `openclaw research literature graph-build` 可以把已落盘的论文写入 Neo4j（paper/authors/cites/authoredBy）。
+- 现在你可以做第一版 Graph RAG 检索（局部 + 全局）：
+  - 全局：对本地落盘论文做可解释的词法检索排序（标题权重大，摘要次之）。
+  - 局部：对命中 paper 节点做邻域扩展（引用列表 + 作者），把“搜索命中”升级成“可继续追问的上下文包”。
+  - `openclaw research literature query` 默认用 memory 图后端（本地快速），也可切到 `--graph-backend neo4j` 走真实图数据库。
+
+### 本轮验证
+
+- `services/paper-intel` 新增的 sources / ingest / grobid / graph / query 全部有单测覆盖，并保持 60 秒内通过。
+- OpenClaw CLI 的 lazy subcommand 注册链路补了 research 的测试，确保 `openclaw research ...` 不会只停留在“命令存在但点不动”。
+
 ### 当前判断
 
 - 项目最重要的第一步不是做功能堆砌，而是把控制面和科研重逻辑切开。
