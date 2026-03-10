@@ -10,6 +10,13 @@
 - GitHub searching footgun: don't limit yourself to the first 500 issues or PRs when wanting to search all. Unless you're supposed to look at the most recent, keep going until you've reached the last page in the search
 - Security advisory analysis: before triage/severity decisions, read `SECURITY.md` to align with OpenClaw's trust model and design boundaries.
 
+## User-Facing Explanation Style
+
+- When reporting completed work to the user, explain it in clear, vivid Chinese that focuses on what was changed, how it now behaves, and what effect the user will feel.
+- Do not lead with piles of English identifiers, internal jargon, or obscure function names unless they are necessary for precision.
+- Prefer describing the feature like a concrete product behavior first, then mention file paths or implementation names only as supporting detail.
+- If a change is complex, translate it into plain language before giving technical references so the result is understandable without reading the code.
+
 ## Auto-close labels (issues and PRs)
 
 - If an issue/PR matches one of the reasons below, apply the label and let `.github/workflows/auto-response.yml` handle comment/close/lock.
@@ -44,6 +51,7 @@
 - Source code: `src/` (CLI wiring in `src/cli`, commands in `src/commands`, web provider in `src/provider-web.ts`, infra in `src/infra`, media pipeline in `src/media`).
 - Tests: colocated `*.test.ts`.
 - Docs: `docs/` (images, queue, Pi config). Built output lives in `dist/`.
+- Project-specific development/work docs for this repo should go under `docs/DeepScholar-Claw-development/`.
 - Plugins/extensions: live under `extensions/*` (workspace packages). Keep plugin-only deps in the extension `package.json`; do not add them to the root `package.json` unless core uses them.
 - Plugins: install runs `npm install --omit=dev` in plugin dir; runtime deps must live in `dependencies`. Avoid `workspace:*` in `dependencies` (npm install breaks); put `openclaw` in `devDependencies` or `peerDependencies` instead (runtime resolves `openclaw/plugin-sdk` via jiti alias).
 - Installers served from `https://openclaw.ai/*`: live in the sibling repo `../openclaw.ai` (`public/install.sh`, `public/install-cli.sh`, `public/install.ps1`).

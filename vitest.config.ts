@@ -80,6 +80,8 @@ export default defineConfig({
     maxWorkers: isCI ? ciWorkers : localWorkers,
     include: [
       "src/**/*.test.ts",
+      "packages/**/*.test.ts",
+      "services/**/*.test.ts",
       "extensions/**/*.test.ts",
       "test/**/*.test.ts",
       "ui/src/ui/views/agents-utils.test.ts",
@@ -116,6 +118,8 @@ export default defineConfig({
       exclude: [
         // Never count workspace packages/apps toward core coverage thresholds.
         "extensions/**",
+        "packages/**",
+        "services/**",
         "apps/**",
         "ui/**",
         "test/**",
