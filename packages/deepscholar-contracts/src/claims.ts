@@ -1,49 +1,243 @@
-import { isNonEmptyText, pushIf, type ValidationIssue } from "./validation.ts";
+import { isIsoTimestamp, type IsoTimestamp } from "./time.ts";
+import { isFiniteNumber, isNonEmptyText, pushIf, type ValidationIssue } from "./validation.ts";
 
+export type ClaimStrength = "strong" | "moderate" | "weak";
+export type AssertionType = "numerical" | "comparative" | "qualitative";
+export type ClaimAuditStatus = "draft" | "verified" | "disputed";
 export type ClaimAggregation = "mean" | "median" | "best";
 
-export type ClaimLedgerEntry = {
-  readonly claimId: string;
-  readonly section: string;
-  readonly statement: string;
-  readonly metricName: string;
+export type BaselineComparison = {
+  readonly baselineRunGroupId: string;
+  readonly delta: number;
+  readonly pValue?: number;
+};
+
+export type EvidenceBinding = {
   readonly runGroupId: string;
+  readonly metricName: string;
+  readonly values: readonly number[];
   readonly aggregation: ClaimAggregation;
-  readonly verified: boolean;
+  readonly std?: number;
+  readonly ci95?: readonly [number, number];
+  readonly seedCount: number;
+  readonly baselineComparison?: BaselineComparison;
 };
 
-export type CreateClaimLedgerEntryInput = {
+export type Assertion = {
+  readonly assertionId: string;
+  readonly type: AssertionType;
+  readonly evidence: EvidenceBinding;
+  readonly figureSpecId?: string;
+  readonly auditStatus: ClaimAuditStatus;
+  readonly verifiedBy?: string;
+  readonly verifiedAt?: IsoTimestamp;
+};
+
+export type Claim = {
   readonly claimId: string;
-  readonly section: string;
-  readonly statement: string;
-  readonly metricName: string;
-  readonly runGroupId: string;
-  readonly aggregation?: ClaimAggregation;
-  readonly verified?: boolean;
+  readonly paperSection: string;
+  readonly content: string;
+  readonly strength: ClaimStrength;
+  readonly assertions: readonly Assertion[];
 };
 
-export function createClaimLedgerEntry(input: CreateClaimLedgerEntryInput): ClaimLedgerEntry {
+export type CreateEvidenceBindingInput = {
+  readonly runGroupId: string;
+  readonly metricName: string;
+  readonly values: readonly number[];
+  readonly aggregation?: ClaimAggregation;
+  readonly std?: number;
+  readonly ci95?: readonly [number, number];
+  readonly seedCount: number;
+  readonly baselineComparison?: BaselineComparison;
+};
+
+export type CreateAssertionInput = {
+  readonly assertionId: string;
+  readonly type: AssertionType;
+  readonly evidence: EvidenceBinding;
+  readonly figureSpecId?: string;
+  readonly auditStatus?: ClaimAuditStatus;
+  readonly verifiedBy?: string;
+  readonly verifiedAt?: IsoTimestamp;
+};
+
+export type CreateClaimInput = {
+  readonly claimId: string;
+  readonly paperSection: string;
+  readonly content: string;
+  readonly strength?: ClaimStrength;
+  readonly assertions: readonly Assertion[];
+};
+
+const DEFAULT_AGGREGATION: ClaimAggregation = "mean";
+const MIN_SEED_COUNT = 1;
+const PVALUE_MIN = 0;
+const PVALUE_MAX = 1;
+
+export function createEvidenceBinding(input: CreateEvidenceBindingInput): EvidenceBinding {
   return {
-    claimId: input.claimId,
-    section: input.section,
-    statement: input.statement,
-    metricName: input.metricName,
     runGroupId: input.runGroupId,
-    aggregation: input.aggregation ?? "mean",
-    verified: input.verified ?? false,
+    metricName: input.metricName,
+    values: input.values,
+    aggregation: input.aggregation ?? DEFAULT_AGGREGATION,
+    std: input.std,
+    ci95: input.ci95,
+    seedCount: input.seedCount,
+    baselineComparison: input.baselineComparison,
   };
 }
 
-export function validateClaimLedgerEntry(entry: ClaimLedgerEntry): ValidationIssue[] {
+export function createAssertion(input: CreateAssertionInput): Assertion {
+  return {
+    assertionId: input.assertionId,
+    type: input.type,
+    evidence: input.evidence,
+    figureSpecId: input.figureSpecId,
+    auditStatus: input.auditStatus ?? "draft",
+    verifiedBy: input.verifiedBy,
+    verifiedAt: input.verifiedAt,
+  };
+}
+
+export function createClaim(input: CreateClaimInput): Claim {
+  return {
+    claimId: input.claimId,
+    paperSection: input.paperSection,
+    content: input.content,
+    strength: input.strength ?? "moderate",
+    assertions: input.assertions,
+  };
+}
+
+function validateBaselineComparison(comparison: BaselineComparison): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  pushIf(issues, !isNonEmptyText(entry.claimId), "claimId", "结论编号不能为空");
-  pushIf(issues, !isNonEmptyText(entry.section), "section", "结论所在章节不能为空");
-  pushIf(issues, !isNonEmptyText(entry.statement), "statement", "结论内容不能为空");
-  pushIf(issues, !isNonEmptyText(entry.metricName), "metricName", "指标名称不能为空");
-  pushIf(issues, !isNonEmptyText(entry.runGroupId), "runGroupId", "运行组编号不能为空");
+  pushIf(
+    issues,
+    !isNonEmptyText(comparison.baselineRunGroupId),
+    "baselineComparison.baselineRunGroupId",
+    "baseline 运行组不能为空",
+  );
+  pushIf(
+    issues,
+    !isFiniteNumber(comparison.delta),
+    "baselineComparison.delta",
+    "差值(delta)必须是有限数字",
+  );
+  if (comparison.pValue !== undefined) {
+    pushIf(
+      issues,
+      !isFiniteNumber(comparison.pValue) ||
+        comparison.pValue < PVALUE_MIN ||
+        comparison.pValue > PVALUE_MAX,
+      "baselineComparison.pValue",
+      "pValue 必须在 [0, 1] 范围内",
+    );
+  }
   return issues;
 }
 
-export function collectUnverifiedClaims(entries: readonly ClaimLedgerEntry[]): ClaimLedgerEntry[] {
-  return entries.filter((entry) => !entry.verified);
+export function validateEvidenceBinding(evidence: EvidenceBinding): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  pushIf(issues, !isNonEmptyText(evidence.runGroupId), "evidence.runGroupId", "运行组编号不能为空");
+  pushIf(issues, !isNonEmptyText(evidence.metricName), "evidence.metricName", "指标名称不能为空");
+  pushIf(issues, evidence.values.length === 0, "evidence.values", "证据数值(values)不能为空");
+  for (const value of evidence.values) {
+    pushIf(issues, !isFiniteNumber(value), "evidence.values", "证据数值(values)必须是有限数字");
+  }
+  pushIf(
+    issues,
+    evidence.seedCount < MIN_SEED_COUNT,
+    "evidence.seedCount",
+    "实验种子数(seedCount)至少为 1",
+  );
+  if (evidence.std !== undefined) {
+    pushIf(
+      issues,
+      !isFiniteNumber(evidence.std) || evidence.std < 0,
+      "evidence.std",
+      "标准差(std)必须是非负数",
+    );
+  }
+  if (evidence.ci95 !== undefined) {
+    const [low, high] = evidence.ci95;
+    pushIf(
+      issues,
+      !isFiniteNumber(low) || !isFiniteNumber(high),
+      "evidence.ci95",
+      "置信区间必须是有限数字",
+    );
+    pushIf(issues, low > high, "evidence.ci95", "置信区间下界不能大于上界");
+  }
+  if (evidence.baselineComparison !== undefined) {
+    issues.push(...validateBaselineComparison(evidence.baselineComparison));
+  }
+  return issues;
+}
+
+export function validateAssertion(assertion: Assertion): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  pushIf(issues, !isNonEmptyText(assertion.assertionId), "assertionId", "断言编号不能为空");
+  issues.push(...validateEvidenceBinding(assertion.evidence));
+
+  if (assertion.type === "comparative") {
+    pushIf(
+      issues,
+      assertion.evidence.baselineComparison === undefined,
+      "evidence.baselineComparison",
+      "对比型断言必须绑定 baselineComparison",
+    );
+  }
+
+  if (assertion.auditStatus === "verified") {
+    pushIf(
+      issues,
+      !isNonEmptyText(assertion.verifiedBy ?? ""),
+      "verifiedBy",
+      "已验证(verified)的断言必须有签名人",
+    );
+    pushIf(
+      issues,
+      !isIsoTimestamp(assertion.verifiedAt ?? ""),
+      "verifiedAt",
+      "已验证(verified)的断言必须有签名时间",
+    );
+  } else {
+    if (assertion.verifiedBy !== undefined) {
+      pushIf(issues, !isNonEmptyText(assertion.verifiedBy), "verifiedBy", "签名人不能为空");
+    }
+    if (assertion.verifiedAt !== undefined) {
+      pushIf(
+        issues,
+        !isIsoTimestamp(assertion.verifiedAt),
+        "verifiedAt",
+        "签名时间必须是合法时间戳",
+      );
+    }
+  }
+  return issues;
+}
+
+export function validateClaim(claim: Claim): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  pushIf(issues, !isNonEmptyText(claim.claimId), "claimId", "结论编号不能为空");
+  pushIf(issues, !isNonEmptyText(claim.paperSection), "paperSection", "论文位置不能为空");
+  pushIf(issues, !isNonEmptyText(claim.content), "content", "结论内容不能为空");
+  pushIf(issues, claim.assertions.length === 0, "assertions", "结论必须至少包含一个断言");
+  for (const assertion of claim.assertions) {
+    issues.push(...validateAssertion(assertion));
+  }
+  return issues;
+}
+
+export function isAssertionVerified(assertion: Assertion): boolean {
+  return assertion.auditStatus === "verified";
+}
+
+export function isClaimVerified(claim: Claim): boolean {
+  return claim.assertions.every((assertion) => isAssertionVerified(assertion));
+}
+
+export function collectUnverifiedClaims(claims: readonly Claim[]): Claim[] {
+  return claims.filter((claim) => !isClaimVerified(claim));
 }

@@ -19,4 +19,5 @@ summary: "Project-specific development notes, plans, and implementation records.
 - `ChatGPT初次建议.md`：架构评审与方案修正建议
 - `ARCHITECTURE.md`：当前工程分层与目录边界
 - `PHASE_1_PLAN.md`：第一阶段计划看板
+- `PHASE_2_PLAN.md`：第二阶段计划看板（计划冻结 + 证据账本）
 - `WORKLOG.md`：实施记录

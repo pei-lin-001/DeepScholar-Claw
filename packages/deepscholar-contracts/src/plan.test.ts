@@ -1,26 +1,46 @@
 import { describe, expect, it } from "vitest";
 import {
   createExperimentSpec,
-  createResearchPlan,
+  createResearchPlanDraft,
+  freezeResearchPlan,
   validateExperimentSpec,
   validateResearchPlan,
+  validateResearchPlanDraft,
 } from "./index.ts";
 
 describe("plan contracts", () => {
-  it("normalizes repeated datasets and stop rules", () => {
-    const plan = createResearchPlan({
+  it("normalizes evaluation metrics and validates draft plan", () => {
+    const draft = createResearchPlanDraft({
       planId: "plan-1",
       projectId: "project-1",
       hypothesis: "Works better",
-      successMetric: "accuracy",
-      successThreshold: 0.8,
-      baselines: [{ name: "base", source: "official" }],
-      datasets: ["mnist", "mnist"],
-      stopRules: ["budget", "budget"],
+      successCriteria: {
+        primaryMetric: "accuracy",
+        targetValue: 0.85,
+        improvementOverBaseline: 0.05,
+      },
+      baselines: [
+        {
+          name: "baseline",
+          source: "official",
+          metricValues: { accuracy: 0.8 },
+        },
+      ],
+      datasets: [{ name: "mnist", version: "1.0", split: "train" }],
+      evaluationMetrics: ["accuracy", "accuracy"],
+      budgetEnvelope: { maxGpuHours: 0, maxCostUsd: 0, maxExperiments: 1 },
+      stopRules: { maxFailedAttempts: 1, budgetDepletionPercent: 80, timeLimitHours: 12 },
     });
-    expect(plan.datasets).toEqual(["mnist"]);
-    expect(plan.stopRules).toEqual(["budget"]);
-    expect(validateResearchPlan(plan)).toEqual([]);
+
+    expect(draft.evaluationMetrics).toEqual(["accuracy"]);
+    expect(validateResearchPlanDraft(draft)).toEqual([]);
+
+    const frozen = freezeResearchPlan({
+      draft,
+      frozenAt: "2026-03-10T00:00:00.000Z",
+      approval: { approvedBy: "human", approvedAt: "2026-03-10T00:00:01.000Z" },
+    });
+    expect(validateResearchPlan(frozen)).toEqual([]);
   });
 
   it("requires datasets and metrics for experiments", () => {

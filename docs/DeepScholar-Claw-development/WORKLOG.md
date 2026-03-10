@@ -26,6 +26,23 @@
 - 把 `packages/` 和 `services/` 纳入 Vitest 测试视野。
 - 跑通第二轮定向测试：7 个测试文件、13 条测试全部通过。
 
+### 新增交付（Phase 2 开始：计划冻结 + 证据账本升级）
+
+- 把“研究计划”从一张松散清单升级为可冻结、可审批、可校验的结构化对象：
+  - 计划草案（ResearchPlanDraft）用于承载假设、成功阈值、baseline、数据集、评估指标、预算 envelope、停止规则。
+  - 冻结计划（ResearchPlan）携带 `frozenAt/approvedBy/approvedAt`，为后续“不能见数据改故事”提供制度底座。
+- 把“结论账本”从“只写一句话+一个指标”升级为 Claim-Evidence Ledger：
+  - 结论（Claim）包含多个断言（Assertion），每个断言都必须绑定到证据（EvidenceBinding）。
+  - 证据明确记录：runGroup、metric、values、seedCount、可选 CI/p-value、以及对比型断言的 baselineComparison。
+  - 审计状态从 boolean 变为更贴近真实流程的 `draft/verified/disputed`，并要求 verified 断言必须带签名人与签名时间。
+- Provenance 服务的账本汇总不再只会“数个数”：
+  - 现在能输出断言级别的审计状态分布（verified/draft/disputed）。
+  - 还能标出证据缺口（比如强断言缺少统计支撑、对比断言缺 baselineComparison 等），用于后续在编排层做硬门控。
+
+### 本轮验证
+
+- contracts 与 provenance 的定向单测保持在 60 秒内通过（使用 `perl -e 'alarm 60; ...'` 约束）。
+
 ### 当前判断
 
 - 项目最重要的第一步不是做功能堆砌，而是把控制面和科研重逻辑切开。
