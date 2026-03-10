@@ -10,6 +10,7 @@ import {
 } from "../../services/paper-intel/src/index.js";
 import { defaultRuntime } from "../runtime.js";
 import { runCommandWithRuntime } from "./cli-utils.js";
+import { registerResearchOrchestratorCli } from "./research-orchestrator-cli.js";
 
 const DEFAULT_LIMIT = 5;
 const DEFAULT_MIN_YEAR = 2018;
@@ -70,6 +71,7 @@ function resolveNeo4jConfig(opts: { uri?: string; username?: string; password?: 
 export function registerResearchCli(program: Command) {
   const research = program.command("research").description("DeepScholar research tools");
   registerLiteratureCli(research);
+  registerResearchOrchestratorCli(research);
 }
 
 function registerLiteratureCli(research: Command) {

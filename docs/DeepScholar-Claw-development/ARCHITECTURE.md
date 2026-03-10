@@ -86,15 +86,12 @@ services/
 - 不直接实现完整研究流水线
 - 不大规模裁剪 OpenClaw 上游核心代码
 
-## 6. 下一步开发方向
+## 6. 已落地的控制面桥接方式
 
-第一阶段后续将继续往下补：
+当前已经通过 OpenClaw CLI 把科研服务层的关键制度能力“接到手上”：
 
-- orchestrator 的阶段状态模型
-- paper-intel 的文献流水线接口
-- runner 的任务规格与失败分类接口
-- provenance 的 claim ledger 结构和校验入口
-- 与 OpenClaw 控制面的桥接方式
+- `openclaw research literature ...`：文献检索/入库/解析/建图/查询
+- `openclaw research start/status/plan freeze/...`：项目编排、阶段门控、预算审批闭环
 
 ## 7. 已落地的基础规则
 
@@ -104,6 +101,9 @@ services/
 - 研究计划与实验规格的基础校验
 - 结论账本条目的基础校验
 - 研究阶段的顺序推进规则
-- 预算门控的初版拦截逻辑
+- 预算门控与审批闭环（申请 -> 暂停 -> 通过/拒绝 -> 留痕）
 - 实验失败的初版分类规则
 - 结论账本的汇总与未验证条目识别
+- Turn-based 决策总线（串行化避免乱序）
+- 分层记忆（Working/Recall/Archival）与显式压缩策略
+- 检查点保存/恢复（关键动作落盘可追溯）

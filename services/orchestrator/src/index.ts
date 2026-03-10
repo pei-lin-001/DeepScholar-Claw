@@ -4,6 +4,50 @@ import { createProjectCharter } from "@deepscholar/contracts";
 
 export { advancePhase, canAdvancePhase, createInitialPhaseState } from "./phase-machine.ts";
 export { evaluateBudgetGate, type BudgetDecision } from "./budget-gate.ts";
+export { createTurnBus, type TurnBus, type TurnMessage } from "./turn-bus.ts";
+export {
+  FIXED_BOTS,
+  getFixedBot,
+  type FixedBotDefinition,
+  type FixedBotId,
+} from "./bots/fixed-bots.ts";
+export {
+  createInMemoryBotTemplateRegistry,
+  type BotTemplate,
+  type BotTemplateRegistry,
+} from "./bots/template-registry.ts";
+export {
+  advanceStep,
+  createEmptyGateContext,
+  evaluateStepTransition,
+  phaseForStep,
+  type StepGateContext,
+  type StepTransitionDecision,
+} from "./step-machine.ts";
+export { createFsAuditLogStore, type AuditLogStore } from "./audit-log-fs.ts";
+export { createFsCheckpointStore, type CheckpointStore } from "./checkpoints-fs.ts";
+export {
+  createFsBudgetApprovalStore,
+  type BudgetApprovalStore,
+} from "./budget-approvals-store-fs.ts";
+export { createFsProjectStore, type ProjectStore } from "./project-store-fs.ts";
+export { createFsMemoryStore } from "./memory-store-fs.ts";
+export {
+  resolveDeepScholarHome,
+  resolveProjectPaths,
+  type DeepScholarHome,
+  type ProjectPaths,
+} from "./project-paths.ts";
+export {
+  abortProject,
+  approveBudgetApproval,
+  freezeProjectPlan,
+  rejectBudgetApproval,
+  requestBudgetApproval,
+  resumeProject,
+  startProject,
+  type OrchestratorDeps,
+} from "./orchestrator-engine.ts";
 
 export const orchestratorService: ServiceDescriptor = {
   id: "orchestrator",

@@ -1,5 +1,19 @@
 import { pathToFileURL } from "node:url";
 import {
+  approveBudgetRequest,
+  rejectBudgetRequest,
+  type ApprovalStatus,
+  type BudgetApprovalRequest,
+  validateBudgetApprovalRequest,
+} from "./approvals.ts";
+import {
+  createAuditEntry,
+  type AuditActor,
+  type AuditDetails,
+  type AuditEntry,
+  validateAuditEntry,
+} from "./audit.ts";
+import {
   createBudgetEnvelope,
   createProjectCharter,
   type BudgetEnvelope,
@@ -35,6 +49,13 @@ import {
   type ExperimentSpec,
   validateExperimentSpec,
 } from "./experiment.ts";
+import {
+  createMemoryItem,
+  type CreateMemoryItemInput,
+  type MemoryItem,
+  type MemoryLayer,
+  validateMemoryItem,
+} from "./memory.ts";
 import { RESEARCH_PHASES, isResearchPhase, type ResearchPhase } from "./phases.ts";
 import {
   createResearchPlanDraft,
@@ -47,41 +68,69 @@ import {
   validateResearchPlan,
   validateResearchPlanDraft,
 } from "./plan.ts";
+import {
+  createResearchProject,
+  type IdeaProposal,
+  type ProjectGateState,
+  type ProjectLifecycleStatus,
+  type ResearchProject,
+  validateIdeaProposal,
+  validateResearchProject,
+} from "./project.ts";
 import { CORE_SERVICE_IDS, type CoreServiceId, type ServiceDescriptor } from "./services.ts";
+import { getNextResearchStep, isResearchStep, RESEARCH_STEPS, type ResearchStep } from "./steps.ts";
 import { isIsoTimestamp, nowIsoTimestamp, type IsoTimestamp } from "./time.ts";
 import type { ValidationIssue } from "./validation.ts";
 
 export {
   CORE_SERVICE_IDS,
   RESEARCH_PHASES,
+  RESEARCH_STEPS,
+  approveBudgetRequest,
   collectUnverifiedClaims,
   createBudgetEnvelope,
   createAssertion,
+  createAuditEntry,
   createClaim,
+  createMemoryItem,
   createEvidenceBinding,
   createExperimentSpec,
   createProjectCharter,
+  createResearchProject,
   createResearchPlanDraft,
   freezeResearchPlan,
+  getNextResearchStep,
   isResearchPhase,
   isAssertionVerified,
   isClaimVerified,
   isIsoTimestamp,
+  isResearchStep,
   nowIsoTimestamp,
+  rejectBudgetRequest,
   validateAssertion,
+  validateAuditEntry,
   validateClaim,
+  validateBudgetApprovalRequest,
   validateEvidenceBinding,
   validateExperimentSpec,
+  validateIdeaProposal,
+  validateMemoryItem,
   validateProjectCharter,
+  validateResearchProject,
   validateResearchPlan,
   validateResearchPlanDraft,
 };
 
 export type {
+  ApprovalStatus,
   Assertion,
   AssertionType,
+  AuditActor,
+  AuditDetails,
+  AuditEntry,
   BaselineComparison,
   BaselineSpec,
+  BudgetApprovalRequest,
   BudgetEnvelope,
   Claim,
   ClaimAggregation,
@@ -92,22 +141,31 @@ export type {
   CreateClaimInput,
   CreateEvidenceBindingInput,
   CreateExperimentSpecInput,
+  CreateMemoryItemInput,
   CreateProjectCharterInput,
   CreateResearchPlanDraftInput,
   EvidenceBinding,
   ExperimentSpec,
   FreezeResearchPlanInput,
+  IdeaProposal,
+  ProjectGateState,
   IsoTimestamp,
+  MemoryItem,
+  MemoryLayer,
+  ProjectLifecycleStatus,
   ProjectCharter,
   ResearchPhase,
   ResearchPlan,
   ResearchPlanDraft,
+  ResearchProject,
+  ResearchStep,
   ServiceDescriptor,
   ValidationIssue,
 };
 
 export const contractSummary = {
   phases: RESEARCH_PHASES,
+  steps: RESEARCH_STEPS,
   services: CORE_SERVICE_IDS,
 };
 

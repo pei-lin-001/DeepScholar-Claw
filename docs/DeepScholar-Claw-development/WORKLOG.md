@@ -79,3 +79,28 @@
 - 已检查当前仓库是否存在可以立即删除的 repo 追踪冗余文件。
 - 结论：本轮暂未发现“当前证据足以证明冗余且删除不会伤及控制面复用”的上游源码/文档。
 - 当前只保留“保守清理”策略：先建立替代结构，再按功能替换结果做定点裁剪。
+
+### 新增交付（Phase 2 完成：编排引擎 + 记忆系统 + 审批闭环）
+
+- 现在“研究项目”不再只是一个聊天话题，而是一套会落盘、会留痕、能复盘的工程对象：
+  - 项目元信息写入 `~/.deepscholar/projects/<projectId>/meta.json`
+  - 每次关键动作都会追加一条不可变审计记录到 `audit_log.jsonl`
+  - 每次关键动作都会落一个 checkpoint，为“中断可恢复”打底
+- 现在“科研流程”不再靠大家凭感觉推进：
+  - 12 步流程有明确的顺序与门控条件，想跳步会被当场拦下并给出原因
+  - Turn-based bus 让决策按顺序排队处理，避免多人同时推动把状态撞碎
+- 现在“预算审批”不再是口头承诺，而是能闭环的暂停开关：
+  - 发起申请后项目会进入 paused，并记录 pending requestId
+  - 人类批准后门控会盖章（budgetApproved=true），并在条件满足时推进到下一步
+  - 人类拒绝后项目保持 paused，审计日志保留拒绝人/时间/理由
+- 现在固定三大角色不再是“概念”，而是在编排层有清晰的身份牌子：
+  - 主编、审计、财务三类常驻 Bot 的使命/边界写死在固定定义里
+  - 同时支持注册“特战队 Bot 模板”，但仍受编排层步骤约束
+- OpenClaw 控制面桥接完成（CLI 先跑通闭环）：
+  - `openclaw research start/status/plan freeze/budget request/approve/reject/resume/abort`
+  - 这让 Phase 2 能在不依赖 Telegram 的前提下先把制度骨架跑通
+
+### 本轮验证
+
+- Phase 2 定向测试在 60 秒内通过（包含 CLI 闭环测试）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/orchestrator/src/*.test.ts packages/deepscholar-contracts/src/*.test.ts src/cli/research-orchestrator-cli.test.ts`
