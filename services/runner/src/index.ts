@@ -3,6 +3,21 @@ import type { ExperimentSpec, ServiceDescriptor } from "@deepscholar/contracts";
 import { createExperimentSpec } from "@deepscholar/contracts";
 
 export { classifyFailure, failurePolicy, type FailureSignal, type FailureType } from "./failure.ts";
+export {
+  createNodeDockerClient,
+  type DockerClient,
+  type DockerRunResult,
+} from "./docker-client.ts";
+export { createFsRunStore, type RunStore } from "./run-store-fs.ts";
+export {
+  resolveDeepScholarHome,
+  resolveRunnerProjectPaths,
+  resolveRunPaths,
+  type DeepScholarHome,
+  type RunPaths,
+  type RunnerProjectPaths,
+} from "./runner-paths.ts";
+export { abortRun, runSmokeExperiment, type SmokeRunOptions } from "./smoke-runner.ts";
 
 export const runnerService: ServiceDescriptor = {
   id: "runner",

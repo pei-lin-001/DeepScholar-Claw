@@ -124,3 +124,15 @@
   - 研究相关 CLI 输出统一走 `runtime.log`，使其能被 OpenClaw 的日志捕获机制一致处理。
 - 同步做了小范围架构整理：
   - 将编排器引擎文件按职责拆分为多个小模块，确保单文件规模与函数规模都保持可维护。
+
+### 新增交付（Phase 3 开始：本地冒烟 Runner + Docker 沙箱闭环）
+
+- 现在“实验”终于有了一个最小但完整的落地形态：一辆能开、能停、能回看的小车
+  - 你可以发起一次冒烟实验，系统会生成一个 runId，并把所有产物按 runId 归档到 runs 目录。
+  - run 不是一段文字描述，而是一份结构化记录（run.json），包含状态、时间戳、退出码、失败摘要等信息。
+- 现在“跑起来”不再等于“在屏幕上打印一句 ok”
+  - 每个 run 目录至少会有 stdout.log、stderr.log、metrics.json，让复盘时有原始材料可查。
+- 现在 Runner 不再依赖“你机器上刚好装了什么”
+  - Docker 执行被抽象成可注入的依赖：单测不需要真实 Docker，也能证明状态流转与落盘行为正确。
+- OpenClaw CLI 已接入 Runner（Phase 3.1）
+  - `openclaw research runner smoke/status/abort` 可用于本地冒烟闭环验证。

@@ -11,6 +11,7 @@ import {
 import { defaultRuntime } from "../runtime.js";
 import { runCommandWithRuntime } from "./cli-utils.js";
 import { registerResearchOrchestratorCli } from "./research-orchestrator-cli.js";
+import { registerResearchRunnerCli } from "./research-runner-cli.js";
 
 const DEFAULT_LIMIT = 5;
 const DEFAULT_MIN_YEAR = 2018;
@@ -72,6 +73,7 @@ export function registerResearchCli(program: Command) {
   const research = program.command("research").description("DeepScholar research tools");
   registerLiteratureCli(research);
   registerResearchOrchestratorCli(research);
+  registerResearchRunnerCli(research);
 }
 
 function registerLiteratureCli(research: Command) {

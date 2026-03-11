@@ -77,6 +77,17 @@ import {
   validateIdeaProposal,
   validateResearchProject,
 } from "./project.ts";
+import {
+  createExperimentRun,
+  type CreateExperimentRunInput,
+  type ExperimentArtifact,
+  type ExperimentExecutionRef,
+  type ExperimentFailure,
+  type ExperimentFailureType,
+  type ExperimentRun,
+  type ExperimentRunStatus,
+  validateExperimentRun,
+} from "./runs.ts";
 import { CORE_SERVICE_IDS, type CoreServiceId, type ServiceDescriptor } from "./services.ts";
 import { getNextResearchStep, isResearchStep, RESEARCH_STEPS, type ResearchStep } from "./steps.ts";
 import { isIsoTimestamp, nowIsoTimestamp, type IsoTimestamp } from "./time.ts";
@@ -96,6 +107,7 @@ export {
   createMemoryItem,
   createEvidenceBinding,
   createExperimentSpec,
+  createExperimentRun,
   createProjectCharter,
   createResearchProject,
   createResearchPlanDraft,
@@ -115,6 +127,7 @@ export {
   validateBudgetApprovalRequest,
   validateEvidenceBinding,
   validateExperimentSpec,
+  validateExperimentRun,
   validateIdeaProposal,
   validateMemoryItem,
   validateProjectCharter,
@@ -143,11 +156,18 @@ export type {
   CreateClaimInput,
   CreateEvidenceBindingInput,
   CreateExperimentSpecInput,
+  CreateExperimentRunInput,
   CreateMemoryItemInput,
   CreateProjectCharterInput,
   CreateResearchPlanDraftInput,
   EvidenceBinding,
+  ExperimentArtifact,
+  ExperimentExecutionRef,
+  ExperimentFailure,
+  ExperimentFailureType,
   ExperimentSpec,
+  ExperimentRun,
+  ExperimentRunStatus,
   FreezeResearchPlanInput,
   IdeaProposal,
   ProjectGateState,
