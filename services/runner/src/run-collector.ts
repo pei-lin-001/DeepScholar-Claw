@@ -28,12 +28,13 @@ async function readTextFileTailBytes(filePath: string, tailBytes: number): Promi
   }
 }
 
-async function readJsonFile(filePath: string): Promise<unknown> {
-  const raw = await fs.readFile(filePath, UTF8);
+async function readJsonFileSafe(filePath: string): Promise<unknown> {
   try {
+    const raw = await fs.readFile(filePath, UTF8);
     return JSON.parse(raw) as unknown;
-  } catch (err) {
-    throw new Error(`无法解析 JSON: ${filePath}: ${String(err)}`, { cause: err });
+  } catch {
+    // metrics.json 可能不存在、为空或包含无效 JSON（容器内脚本异常退出时常见），降级返回 null
+    return null;
   }
 }
 
@@ -48,7 +49,7 @@ export async function collectRunSummary(params: {
   const tailBytes = params.tailBytes ?? DEFAULT_TAIL_BYTES;
 
   const [metrics, stdoutTail, stderrTail] = await Promise.all([
-    readJsonFile(paths.metricsPath),
+    readJsonFileSafe(paths.metricsPath),
     readTextFileTailBytes(paths.stdoutPath, tailBytes),
     readTextFileTailBytes(paths.stderrPath, tailBytes),
   ]);

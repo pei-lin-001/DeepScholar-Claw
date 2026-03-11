@@ -3,7 +3,6 @@ import {
   nowIsoTimestamp,
   type ExperimentExecutionRequest,
   type ExperimentRun,
-  type ExperimentRunStatus,
 } from "@deepscholar/contracts";
 import type { DockerClient } from "./docker-client.ts";
 import type { DockerSandboxProfile } from "./docker-sandbox.ts";
@@ -14,6 +13,7 @@ import {
   type ExperimentTemplateId,
 } from "./experiment-templates.ts";
 import type { RunStore } from "./run-store-fs.ts";
+import { containerName, finalizeRun, setRunStatus } from "./runner-utils.ts";
 
 export type TemplateRunOptions = {
   readonly projectId: string;
@@ -25,20 +25,6 @@ export type TemplateRunOptions = {
   readonly timeoutMs: number;
   readonly retryOfRunId?: string;
 };
-
-function containerName(projectId: string, runId: string): string {
-  const safe = (value: string) => value.replaceAll(/[^a-zA-Z0-9_.-]/g, "_");
-  const name = `deepscholar_${safe(projectId)}_${safe(runId)}`;
-  return name.length > 120 ? name.slice(0, 120) : name;
-}
-
-function setStatus(
-  run: ExperimentRun,
-  status: ExperimentRunStatus,
-  patch: Partial<ExperimentRun>,
-): ExperimentRun {
-  return { ...run, ...patch, status, updatedAt: nowIsoTimestamp() };
-}
 
 function executionRequest(options: TemplateRunOptions): ExperimentExecutionRequest {
   const templateId = parseTemplateId(options.templateId);
@@ -53,7 +39,7 @@ function executionRequest(options: TemplateRunOptions): ExperimentExecutionReque
 }
 
 function markRunning(run: ExperimentRun, name: string, options: TemplateRunOptions): ExperimentRun {
-  return setStatus(run, "running", {
+  return setRunStatus(run, "running", {
     startedAt: nowIsoTimestamp(),
     execution: { driver: "docker", containerName: name },
     executionRequest: executionRequest(options),
@@ -65,24 +51,6 @@ function markRunning(run: ExperimentRun, name: string, options: TemplateRunOptio
       { path: "metrics.json", kind: "metric", description: "template metrics" },
       { path: "main.py", kind: "file", description: "rendered template entry" },
     ],
-  });
-}
-
-function finalizeRun(
-  running: ExperimentRun,
-  result: { readonly exitCode: number | null; readonly timedOut: boolean },
-): ExperimentRun {
-  const finishedAt = nowIsoTimestamp();
-  if (result.timedOut) {
-    return setStatus(running, "timeout", { finishedAt, exitCode: result.exitCode ?? undefined });
-  }
-  if (result.exitCode === 0) {
-    return setStatus(running, "succeeded", { finishedAt, exitCode: 0 });
-  }
-  return setStatus(running, "failed", {
-    finishedAt,
-    exitCode: result.exitCode ?? undefined,
-    failure: { type: "implementation", message: `exitCode=${String(result.exitCode ?? "null")}` },
   });
 }
 

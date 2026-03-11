@@ -46,10 +46,16 @@ export async function spawnDockerToFiles(params: {
   const timeout = setTimeout(() => {
     timedOut = true;
     stderrStream.write("[runner] docker command timed out, attempting cleanup...\n");
-    params.onTimeout().catch((err) => {
-      stderrStream.write(`[runner] timeout cleanup failed: ${String(err)}\n`);
-    });
-    child.kill("SIGKILL");
+    params
+      .onTimeout()
+      .catch((err) => {
+        if (!stderrStream.destroyed) {
+          stderrStream.write(`[runner] timeout cleanup failed: ${String(err)}\n`);
+        }
+      })
+      .finally(() => {
+        child.kill("SIGKILL");
+      });
   }, params.timeoutMs);
 
   try {

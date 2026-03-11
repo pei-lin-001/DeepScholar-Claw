@@ -1,14 +1,8 @@
-export type DockerSandboxProfile = "compat" | "hardened" | "gvisor";
-
-export const DOCKER_SANDBOX_PROFILES: readonly DockerSandboxProfile[] = [
-  "compat",
-  "hardened",
-  "gvisor",
-];
-
-export function isDockerSandboxProfile(value: string): value is DockerSandboxProfile {
-  return (DOCKER_SANDBOX_PROFILES as readonly string[]).includes(value);
-}
+export {
+  DOCKER_SANDBOX_PROFILES,
+  isDockerSandboxProfile,
+  type DockerSandboxProfile,
+} from "@deepscholar/contracts";
 
 const TMPFS_TMP_DIR = "/tmp";
 const TMPFS_TMP_SIZE = "64m";

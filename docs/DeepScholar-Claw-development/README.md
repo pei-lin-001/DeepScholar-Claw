@@ -21,5 +21,6 @@ summary: "Project-specific development notes, plans, and implementation records.
 - `PHASE_1_PLAN.md`：第一阶段计划看板
 - `PHASE_2_PLAN.md`：第二阶段计划看板（编排引擎 + 记忆系统 + 审批闭环）
 - `PHASE_3_PLAN.md`：第三阶段计划看板（实验执行引擎：本地冒烟 Runner）
+- `PHASE_4_PLAN.md`：第四阶段计划看板（论文打包、LaTeX 编译、同行评审）
 - `SPEC_PHASE_1_LITERATURE_PLAN.md`：规格 Phase 1 完成记录（文献模块）
 - `WORKLOG.md`：实施记录

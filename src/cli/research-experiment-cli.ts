@@ -13,22 +13,23 @@ import {
 import {
   createFsRunStore,
   createNodeDockerClient,
-  DOCKER_SANDBOX_PROFILES,
-  isDockerSandboxProfile,
   type DockerClient,
-  type DockerSandboxProfile,
   type RunStore,
 } from "../../services/runner/src/index.js";
 import { runSmokeExperiment } from "../../services/runner/src/index.js";
-import { defaultRuntime, type RuntimeEnv } from "../runtime.js";
+import { defaultRuntime } from "../runtime.js";
 import { runCommandWithRuntime } from "./cli-utils.js";
-
-const DEFAULT_IMAGE = "alpine:3.20";
-const DEFAULT_HOLD_SECONDS = 1;
-const DEFAULT_TIMEOUT_SECONDS = 120;
-const DEFAULT_SANDBOX_PROFILE = "compat";
-
-type ExperimentCliRuntime = Pick<RuntimeEnv, "log" | "error" | "exit">;
+import {
+  DEFAULT_HOLD_SECONDS,
+  DEFAULT_IMAGE,
+  DEFAULT_SANDBOX_PROFILE,
+  DEFAULT_TIMEOUT_SECONDS,
+  parseNonEmptyText,
+  parsePositiveInt,
+  parseSandboxProfile,
+  printJsonOrSummary,
+  type RunnerCliRuntime,
+} from "./research-runner-cli-helpers.js";
 
 type ExperimentCliDeps = {
   readonly orchestrator: OrchestratorDeps;
@@ -37,42 +38,6 @@ type ExperimentCliDeps = {
 };
 
 type ExperimentCliDepsFactory = (homeDir?: string) => ExperimentCliDeps;
-
-function parseNonEmptyText(raw: unknown, label: string, fallback?: string): string {
-  if (raw === undefined || raw === null || raw === "") {
-    if (fallback !== undefined) {
-      return fallback;
-    }
-    throw new Error(`${label} 不能为空`);
-  }
-  if (typeof raw !== "string") {
-    throw new Error(`${label} 必须是字符串`);
-  }
-  const trimmed = raw.trim();
-  if (trimmed.length === 0) {
-    throw new Error(`${label} 不能为空`);
-  }
-  return trimmed;
-}
-
-function parsePositiveInt(raw: unknown, label: string, fallback: number): number {
-  if (raw === undefined || raw === null || raw === "") {
-    return fallback;
-  }
-  const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
-  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
-    throw new Error(`${label} 必须是正整数`);
-  }
-  return n;
-}
-
-function parseSandboxProfile(raw: unknown): DockerSandboxProfile {
-  const value = parseNonEmptyText(raw, "sandbox-profile", DEFAULT_SANDBOX_PROFILE);
-  if (isDockerSandboxProfile(value)) {
-    return value;
-  }
-  throw new Error(`sandbox-profile 必须是 ${DOCKER_SANDBOX_PROFILES.join("/")}`);
-}
 
 function requireFrozenPlan(project: ResearchProject): string {
   if (!project.plan) {
@@ -93,19 +58,6 @@ function requireStep8Ready(project: ResearchProject): void {
   }
 }
 
-function printJsonOrSummary(
-  runtime: ExperimentCliRuntime,
-  opts: Record<string, unknown>,
-  value: unknown,
-  summary: string,
-): void {
-  if (opts.json) {
-    runtime.log(JSON.stringify(value, null, 2));
-    return;
-  }
-  runtime.log(summary);
-}
-
 const createDefaultDeps: ExperimentCliDepsFactory = (homeDir?: string) => {
   return {
     orchestrator: {
@@ -120,7 +72,7 @@ const createDefaultDeps: ExperimentCliDepsFactory = (homeDir?: string) => {
 
 export function registerResearchExperimentCli(
   research: Command,
-  runtime: ExperimentCliRuntime = defaultRuntime,
+  runtime: RunnerCliRuntime = defaultRuntime,
   depsFactory: ExperimentCliDepsFactory = createDefaultDeps,
 ): void {
   const experiment = research.command("experiment").description("Experiment dispatch (Phase 3.4)");
@@ -129,7 +81,7 @@ export function registerResearchExperimentCli(
 
 function registerExperimentRun(
   experiment: Command,
-  runtime: ExperimentCliRuntime,
+  runtime: RunnerCliRuntime,
   depsFactory: ExperimentCliDepsFactory,
 ): void {
   experiment
@@ -157,9 +109,10 @@ function registerExperimentRun(
     });
 }
 
+// TODO: 当前只调用 runSmokeExperiment；后续应根据实验类型（template/program）分派到对应 runner
 async function runExperimentRun(
   opts: Record<string, unknown>,
-  runtime: ExperimentCliRuntime,
+  runtime: RunnerCliRuntime,
   depsFactory: ExperimentCliDepsFactory,
 ): Promise<void> {
   const deps = depsFactory(opts.home as string | undefined);
