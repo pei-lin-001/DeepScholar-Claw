@@ -78,6 +78,7 @@ export function registerResearchRunnerCli(
   const runner = research.command("runner").description("Local runner (Phase 3)");
   registerSmoke(runner, runtime, depsFactory);
   registerStatus(runner, runtime, depsFactory);
+  registerList(runner, runtime, depsFactory);
   registerAbort(runner, runtime, depsFactory);
 }
 
@@ -168,6 +169,44 @@ async function runStatus(
     parseNonEmptyText(opts.runId, "run-id"),
   );
   printJsonOrSummary(runtime, opts, run, `runId=${run.runId} status=${run.status}`);
+}
+
+function registerList(
+  runner: Command,
+  runtime: RunnerCliRuntime,
+  depsFactory: RunnerCliDepsFactory,
+): void {
+  runner
+    .command("list")
+    .description("List runs for a project (most recent first)")
+    .requiredOption("--project-id <id>", "Project id")
+    .option("--home <dir>", "Override DeepScholar home directory (default: ~/.deepscholar)")
+    .option("--json", "Output JSON", false)
+    .action(async (opts) => {
+      await runCommandWithRuntime(runtime, () => runList(opts, runtime, depsFactory));
+    });
+}
+
+async function runList(
+  opts: Record<string, unknown>,
+  runtime: RunnerCliRuntime,
+  depsFactory: RunnerCliDepsFactory,
+): Promise<void> {
+  const deps = depsFactory(opts.home as string | undefined);
+  const projectId = parseNonEmptyText(opts.projectId, "project-id");
+  const runs = await deps.store.list(projectId);
+
+  if (opts.json) {
+    runtime.log(JSON.stringify(runs, null, 2));
+    return;
+  }
+  if (runs.length === 0) {
+    runtime.log(`项目 ${projectId} 暂无 runs`);
+    return;
+  }
+  for (const run of runs) {
+    runtime.log(`${run.runId} | ${run.status} | updatedAt=${run.updatedAt}`);
+  }
 }
 
 function registerAbort(

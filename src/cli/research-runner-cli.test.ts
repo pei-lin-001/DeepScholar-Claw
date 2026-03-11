@@ -91,6 +91,44 @@ describe("research runner CLI", () => {
     expect(loaded.status).toBe("succeeded");
   });
 
+  it("lists runs for a project", async () => {
+    const homeDir = await createTempDir("deepscholar-runner-cli-");
+    const logs: string[] = [];
+    const runtime = {
+      log: (...args: unknown[]) => {
+        const first = args[0];
+        logs.push(typeof first === "string" ? first : "");
+      },
+      error: vi.fn(),
+      exit: (code: number) => {
+        throw new Error(`exit ${code}`);
+      },
+    };
+
+    const store = createFsRunStore({ homeDir });
+    await store.create({ runId: "r1", projectId: "p1", planId: "plan-1", experimentId: "exp-1" });
+    await store.create({ runId: "r2", projectId: "p1", planId: "plan-1", experimentId: "exp-1" });
+    await store.save({ ...(await store.load("p1", "r1")), updatedAt: "2026-03-11T00:00:00.000Z" });
+    await store.save({ ...(await store.load("p1", "r2")), updatedAt: "2026-03-11T00:00:01.000Z" });
+    await store.create({
+      runId: "other",
+      projectId: "p2",
+      planId: "plan-1",
+      experimentId: "exp-1",
+    });
+
+    const program = createProgram(runtime);
+    await program.parseAsync(
+      ["research", "runner", "list", "--project-id", "p1", "--home", homeDir, "--json"],
+      {
+        from: "user",
+      },
+    );
+    const runs = lastJson<{ runId: string; status: string }[]>(logs);
+    expect(runs.map((run) => run.runId)).toEqual(["r2", "r1"]);
+    expect(runs.map((run) => run.status).every((status) => typeof status === "string")).toBe(true);
+  });
+
   it("aborts a running run", async () => {
     const homeDir = await createTempDir("deepscholar-runner-cli-");
     const logs: string[] = [];

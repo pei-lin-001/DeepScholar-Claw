@@ -39,6 +39,14 @@ function issueSummary(run: ExperimentRun): string {
   return issues.map((issue) => `${issue.field}:${issue.message}`).join(", ");
 }
 
+function compareRunsNewestFirst(a: ExperimentRun, b: ExperimentRun): number {
+  const byUpdatedAt = b.updatedAt.localeCompare(a.updatedAt);
+  if (byUpdatedAt !== 0) {
+    return byUpdatedAt;
+  }
+  return a.runId.localeCompare(b.runId);
+}
+
 export function createFsRunStore(options: FsRunStoreOptions = {}): RunStore {
   const home = options.home ?? resolveDeepScholarHome(options.homeDir);
 
@@ -98,7 +106,7 @@ export function createFsRunStore(options: FsRunStoreOptions = {}): RunStore {
       const entries = await fs.readdir(dir, { withFileTypes: true });
       const runDirs = entries.filter((entry) => entry.isDirectory()).map((entry) => entry.name);
       const runs = await Promise.all(runDirs.map((runId) => load(projectId, runId)));
-      return runs;
+      return runs.toSorted(compareRunsNewestFirst);
     } catch (err) {
       if (err && typeof err === "object" && "code" in err && err.code === "ENOENT") {
         return [];

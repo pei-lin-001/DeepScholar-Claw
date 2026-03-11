@@ -136,3 +136,21 @@
   - Docker 执行被抽象成可注入的依赖：单测不需要真实 Docker，也能证明状态流转与落盘行为正确。
 - OpenClaw CLI 已接入 Runner（Phase 3.1）
   - `openclaw research runner smoke/status/abort` 可用于本地冒烟闭环验证。
+
+### 新增交付（Phase 3.2：Runner 可诊断性 + Run 管理能力）
+
+- 现在“冒烟实验超时”不再只剩一个冷冰冰的 `timeout`：
+  - Runner 会在 `stderr.log` 里写清楚当前卡在什么阶段，例如 `stage=image.inspect` / `stage=image.pull` / `stage=container.run`。
+  - 这样当你看到“跑不完”时，不需要猜是镜像拉不下来、容器起不来，还是脚本本身卡住。
+- 现在你可以像翻“项目的实验台账”一样管理 runs：
+  - 新增 `openclaw research runner list --project-id <id>`，能列出该项目下所有 run（默认最近的在前）。
+  - RunStore 的 list 输出按 `updatedAt` 倒序排序，结果稳定可复现，不会出现“同一批 runs 每次顺序不一样”的困扰。
+- abort/清理更像“刹车踏板”，而不是“赌运气”：
+  - Docker stop 对“容器已经消失/根本没创建成功”的情况做了幂等处理，不会因为 `No such container` 把 abort 链路直接打断。
+
+### 本轮验证
+
+- Runner 定向单测在 60 秒内通过：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts`
+- CLI runner 定向单测在 60 秒内通过（包含 list）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run src/cli/research-runner-cli.test.ts`

@@ -34,7 +34,10 @@ describe("run store fs", () => {
     await store.create({ runId: "r1", projectId: "p1", planId: "plan-1", experimentId: "exp-1" });
     await store.create({ runId: "r2", projectId: "p1", planId: "plan-1", experimentId: "exp-1" });
 
+    await store.save({ ...(await store.load("p1", "r1")), updatedAt: "2026-03-11T00:00:00.000Z" });
+    await store.save({ ...(await store.load("p1", "r2")), updatedAt: "2026-03-11T00:00:01.000Z" });
+
     const runs = await store.list("p1");
-    expect(runs.map((run) => run.runId).toSorted()).toEqual(["r1", "r2"]);
+    expect(runs.map((run) => run.runId)).toEqual(["r2", "r1"]);
   });
 });
