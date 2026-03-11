@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { isNonEmptyText, uniqueStrings } from "@deepscholar/contracts";
 import type { WritingProjectPaths } from "./writing-paths.ts";
 
 export type CitationExtractionResult = {
@@ -12,14 +13,6 @@ export type CitationVerificationResult = {
 };
 
 const CITE_COMMAND = /\\cite[a-zA-Z]*\{([^}]+)\}/g;
-
-function isNonEmptyText(value: string): boolean {
-  return value.trim().length > 0;
-}
-
-function uniqueStrings(values: readonly string[]): string[] {
-  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
-}
 
 export function extractCitationKeysFromTex(tex: string): CitationExtractionResult {
   const matches: string[] = [];

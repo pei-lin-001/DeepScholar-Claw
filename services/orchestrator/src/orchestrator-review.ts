@@ -1,4 +1,5 @@
 import {
+  isNonEmptyText,
   nowIsoTimestamp,
   validateReviewDecision,
   type ResearchProject,
@@ -6,10 +7,6 @@ import {
 } from "@deepscholar/contracts";
 import { checkpointAndSave, actor, type OrchestratorDeps } from "./orchestrator-internals.ts";
 import { advanceStep, phaseForStep } from "./step-machine.ts";
-
-function isNonEmptyText(value: string): boolean {
-  return value.trim().length > 0;
-}
 
 function requireProjectReady(project: ResearchProject): void {
   if (project.step !== "step11_peer_review") {

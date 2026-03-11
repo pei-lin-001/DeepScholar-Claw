@@ -1,5 +1,6 @@
 import os from "node:os";
 import path from "node:path";
+import { safeIdForFileName } from "@deepscholar/contracts";
 
 export type DeepScholarHome = {
   readonly rootDir: string;
@@ -31,7 +32,8 @@ export function resolveWritingProjectPaths(
   home: DeepScholarHome,
   projectId: string,
 ): WritingProjectPaths {
-  const projectDir = path.join(home.rootDir, "projects", projectId);
+  const safeProjectId = safeIdForFileName(projectId, "projectId");
+  const projectDir = path.join(home.rootDir, "projects", safeProjectId);
   const paperDir = path.join(projectDir, "paper");
   return {
     projectDir,
@@ -46,7 +48,8 @@ export function resolvePaperDraftPaths(
   projectPaths: WritingProjectPaths,
   draftId: string,
 ): PaperDraftPaths {
-  const draftDir = path.join(projectPaths.draftsDir, draftId);
+  const safeDraftId = safeIdForFileName(draftId, "draftId");
+  const draftDir = path.join(projectPaths.draftsDir, safeDraftId);
   return {
     draftDir,
     draftJsonPath: path.join(draftDir, "draft.json"),

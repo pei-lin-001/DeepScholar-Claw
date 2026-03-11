@@ -1,4 +1,5 @@
 import type { PaperDraft } from "@deepscholar/contracts";
+import { escapeLatex } from "./latex-escape.ts";
 
 function latexHeader(draft: PaperDraft): string {
   const venueNote =
@@ -14,7 +15,7 @@ function latexHeader(draft: PaperDraft): string {
     "\\usepackage{graphicx}",
     "\\usepackage{hyperref}",
     "\\usepackage{booktabs}",
-    "\\title{" + draft.title + "}",
+    "\\title{" + escapeLatex(draft.title) + "}",
     "\\author{DeepScholar-Claw}",
     "\\date{}",
     "",
@@ -25,7 +26,7 @@ function latexHeader(draft: PaperDraft): string {
 }
 
 function latexSection(title: string, content: string): string {
-  return ["\\section{" + title + "}", content.trim(), ""].join("\n");
+  return ["\\section{" + escapeLatex(title) + "}", content.trim(), ""].join("\n");
 }
 
 function latexFigures(draft: PaperDraft): string {
@@ -37,7 +38,7 @@ function latexFigures(draft: PaperDraft): string {
       "\\begin{figure}[t]",
       "\\centering",
       "\\includegraphics[width=0.8\\linewidth]{" + figure.path + "}",
-      "\\caption{" + figure.caption + "}",
+      "\\caption{" + escapeLatex(figure.caption) + "}",
       "\\label{" + figure.latexRef + "}",
       "\\end{figure}",
       "",

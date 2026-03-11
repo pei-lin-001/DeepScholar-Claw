@@ -141,7 +141,7 @@ import { CORE_SERVICE_IDS, type CoreServiceId, type ServiceDescriptor } from "./
 import { getNextResearchStep, isResearchStep, RESEARCH_STEPS, type ResearchStep } from "./steps.ts";
 import { isIsoTimestamp, nowIsoTimestamp, type IsoTimestamp } from "./time.ts";
 import type { ValidationIssue } from "./validation.ts";
-import { isOneOf } from "./validation.ts";
+import { isNonEmptyText, isOneOf, safeIdForFileName, uniqueStrings } from "./validation.ts";
 
 export {
   CORE_SERVICE_IDS,
@@ -180,6 +180,7 @@ export {
   isDockerSandboxProfile,
   isExperimentRunStatus,
   isOneOf,
+  isNonEmptyText,
   isResearchStep,
   isPaperDraftStatus,
   isPaperVenueTemplateId,
@@ -188,6 +189,8 @@ export {
   isReviewVerdict,
   nowIsoTimestamp,
   rejectBudgetRequest,
+  safeIdForFileName,
+  uniqueStrings,
   validateAssertion,
   validateAuditEntry,
   validateClaim,

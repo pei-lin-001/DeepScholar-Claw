@@ -2,6 +2,7 @@ import { pathToFileURL } from "node:url";
 import type { ServiceDescriptor } from "@deepscholar/contracts";
 
 export { renderPaperMainTex } from "./latex-template.ts";
+export { escapeLatex } from "./latex-escape.ts";
 export { createPlaceholderBibEntries, renderBibTeX, type BibTeXEntry } from "./bibtex.ts";
 export {
   extractCitationKeysFromTex,

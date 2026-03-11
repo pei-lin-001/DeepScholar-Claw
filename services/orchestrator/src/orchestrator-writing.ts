@@ -1,10 +1,6 @@
-import { nowIsoTimestamp, type ResearchProject } from "@deepscholar/contracts";
+import { isNonEmptyText, nowIsoTimestamp, type ResearchProject } from "@deepscholar/contracts";
 import { checkpointAndSave, actor, type OrchestratorDeps } from "./orchestrator-internals.ts";
 import { advanceStep, phaseForStep } from "./step-machine.ts";
-
-function isNonEmptyText(value: string): boolean {
-  return value.trim().length > 0;
-}
 
 function requireProjectReady(project: ResearchProject): void {
   if (project.step !== "step10_paper_writing") {

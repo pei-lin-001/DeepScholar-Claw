@@ -68,6 +68,9 @@ export function aggregateReviews(
   input: { readonly decisionId: string; readonly policy?: ReviewAggregationPolicy },
 ): AggregateReviewsResult {
   const policy = input.policy ?? DEFAULT_REVIEW_AGGREGATION_POLICY;
+  if (policy.expectedReviewerCount < 1) {
+    throw new Error("expectedReviewerCount 必须 >= 1");
+  }
   if (reviews.length !== policy.expectedReviewerCount) {
     throw new Error(
       `评审数量不符合预期: expected=${policy.expectedReviewerCount} actual=${reviews.length}`,

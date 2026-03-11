@@ -7,6 +7,9 @@ import {
   type LatexCompiler,
 } from "../../services/writing/src/index.js";
 import { createOrchestratorDeps } from "./research-orchestrator-helpers.js";
+import { parsePositiveInt } from "./research-runner-cli-helpers.js";
+
+export { parsePositiveInt };
 
 export const DEFAULT_VENUE: PaperVenueTemplateId = "arxiv";
 export const DEFAULT_BIB_YEAR = String(new Date().getFullYear());
@@ -27,17 +30,6 @@ export const createDefaultDeps: Phase4CliDepsFactory = (homeDir?: string) => {
     createLatexCompiler: (image: string) => createDockerLatexCompiler({ exec, image }),
   };
 };
-
-export function parsePositiveInt(raw: unknown, label: string, fallback: number): number {
-  if (raw === undefined || raw === null || raw === "") {
-    return fallback;
-  }
-  const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
-  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
-    throw new Error(`${label} 必须是正整数`);
-  }
-  return n;
-}
 
 export function requireStep(project: ResearchProject, step: ResearchProject["step"]): void {
   if (project.step !== step) {

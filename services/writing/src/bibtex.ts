@@ -1,6 +1,5 @@
-function isNonEmptyText(value: string): boolean {
-  return value.trim().length > 0;
-}
+import { isNonEmptyText } from "@deepscholar/contracts";
+import { escapeLatex } from "./latex-escape.ts";
 
 export type BibTeXEntry = {
   readonly key: string;
@@ -10,19 +9,15 @@ export type BibTeXEntry = {
   readonly note?: string;
 };
 
-function bibEscape(value: string): string {
-  return value.replaceAll("{", "\\{").replaceAll("}", "\\}");
-}
-
 function renderBibTeXEntry(entry: BibTeXEntry): string {
   const base = [
     `@misc{${entry.key},`,
-    `  title = {${bibEscape(entry.title)}},`,
-    `  author = {${bibEscape(entry.author)}},`,
-    `  year = {${bibEscape(entry.year)}},`,
+    `  title = {${escapeLatex(entry.title)}},`,
+    `  author = {${escapeLatex(entry.author)}},`,
+    `  year = {${escapeLatex(entry.year)}},`,
   ];
   if (entry.note) {
-    base.push(`  note = {${bibEscape(entry.note)}},`);
+    base.push(`  note = {${escapeLatex(entry.note)}},`);
   }
   base.push("}");
   return base.join("\n");
