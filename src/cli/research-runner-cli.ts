@@ -1,8 +1,10 @@
 import type { Command } from "commander";
 import {
+  collectRunSummary,
   createFsRunStore,
   createNodeDockerClient,
   type DockerClient,
+  type RunCollectedSnapshot,
   type RunStore,
 } from "../../services/runner/src/index.js";
 import { abortRun, runSmokeExperiment } from "../../services/runner/src/index.js";
@@ -12,6 +14,7 @@ import { runCommandWithRuntime } from "./cli-utils.js";
 const DEFAULT_IMAGE = "alpine:3.20";
 const DEFAULT_HOLD_SECONDS = 1;
 const DEFAULT_TIMEOUT_SECONDS = 120;
+const DEFAULT_COLLECT_TAIL_BYTES = 4096;
 
 type RunnerCliRuntime = Pick<RuntimeEnv, "log" | "error" | "exit">;
 
@@ -63,6 +66,15 @@ function printJsonOrSummary(
   runtime.log(summary);
 }
 
+function printCollectedSummary(runtime: RunnerCliRuntime, summary: RunCollectedSnapshot): void {
+  runtime.log(`runId=${summary.run.runId} status=${summary.run.status}`);
+  runtime.log(`metrics=${JSON.stringify(summary.metrics)}`);
+  runtime.log("--- stdout (tail) ---");
+  runtime.log(summary.stdoutTail.trimEnd());
+  runtime.log("--- stderr (tail) ---");
+  runtime.log(summary.stderrTail.trimEnd());
+}
+
 const createDefaultDeps: RunnerCliDepsFactory = (homeDir?: string) => {
   return {
     store: createFsRunStore({ homeDir }),
@@ -79,6 +91,7 @@ export function registerResearchRunnerCli(
   registerSmoke(runner, runtime, depsFactory);
   registerStatus(runner, runtime, depsFactory);
   registerList(runner, runtime, depsFactory);
+  registerCollect(runner, runtime, depsFactory);
   registerAbort(runner, runtime, depsFactory);
 }
 
@@ -207,6 +220,42 @@ async function runList(
   for (const run of runs) {
     runtime.log(`${run.runId} | ${run.status} | updatedAt=${run.updatedAt}`);
   }
+}
+
+function registerCollect(
+  runner: Command,
+  runtime: RunnerCliRuntime,
+  depsFactory: RunnerCliDepsFactory,
+): void {
+  runner
+    .command("collect")
+    .description("Collect a run snapshot: status + metrics + log tails")
+    .requiredOption("--project-id <id>", "Project id")
+    .requiredOption("--run-id <id>", "Run id")
+    .option("--home <dir>", "Override DeepScholar home directory (default: ~/.deepscholar)")
+    .option("--tail-bytes <n>", "Tail bytes for stdout/stderr", String(DEFAULT_COLLECT_TAIL_BYTES))
+    .option("--json", "Output JSON", false)
+    .action(async (opts) => {
+      await runCommandWithRuntime(runtime, () => runCollect(opts, runtime, depsFactory));
+    });
+}
+
+async function runCollect(
+  opts: Record<string, unknown>,
+  runtime: RunnerCliRuntime,
+  depsFactory: RunnerCliDepsFactory,
+): Promise<void> {
+  const deps = depsFactory(opts.home as string | undefined);
+  const projectId = parseNonEmptyText(opts.projectId, "project-id");
+  const runId = parseNonEmptyText(opts.runId, "run-id");
+  const tailBytes = parsePositiveInt(opts.tailBytes, "tail-bytes", DEFAULT_COLLECT_TAIL_BYTES);
+
+  const summary = await collectRunSummary({ store: deps.store, projectId, runId, tailBytes });
+  if (opts.json) {
+    runtime.log(JSON.stringify(summary, null, 2));
+    return;
+  }
+  printCollectedSummary(runtime, summary);
 }
 
 function registerAbort(

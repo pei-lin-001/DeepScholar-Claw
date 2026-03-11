@@ -91,6 +91,51 @@ describe("research runner CLI", () => {
     expect(loaded.status).toBe("succeeded");
   });
 
+  it("collects a run snapshot", async () => {
+    const homeDir = await createTempDir("deepscholar-runner-cli-");
+    const logs: string[] = [];
+    const runtime = {
+      log: (...args: unknown[]) => {
+        const first = args[0];
+        logs.push(typeof first === "string" ? first : "");
+      },
+      error: vi.fn(),
+      exit: (code: number) => {
+        throw new Error(`exit ${code}`);
+      },
+    };
+    const program = createProgram(runtime);
+
+    await program.parseAsync(
+      ["research", "runner", "smoke", "--project-id", "p1", "--home", homeDir, "--json"],
+      {
+        from: "user",
+      },
+    );
+    const run = lastJson<{ runId: string; status: string }>(logs);
+    expect(run.status).toBe("succeeded");
+
+    logs.length = 0;
+    await program.parseAsync(
+      [
+        "research",
+        "runner",
+        "collect",
+        "--project-id",
+        "p1",
+        "--run-id",
+        run.runId,
+        "--home",
+        homeDir,
+        "--json",
+      ],
+      { from: "user" },
+    );
+    const collected = lastJson<{ run: { runId: string }; metrics: { health: number } }>(logs);
+    expect(collected.run.runId).toBe(run.runId);
+    expect(collected.metrics.health).toBe(1);
+  });
+
   it("lists runs for a project", async () => {
     const homeDir = await createTempDir("deepscholar-runner-cli-");
     const logs: string[] = [];

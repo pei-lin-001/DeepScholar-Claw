@@ -154,3 +154,17 @@
   - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts`
 - CLI runner 定向单测在 60 秒内通过（包含 list）：
   - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run src/cli/research-runner-cli.test.ts`
+
+### 新增交付（Phase 3.3：Runner collect（一键复盘汇总））
+
+- 现在你不需要再手动打开 `run.json`、`metrics.json`、`stdout.log`、`stderr.log` 四个文件来拼“事故现场”了：
+  - 新增 `collect` 会把 run 状态、metrics 内容、stdout/stderr 的尾部片段一次性打包输出。
+  - 你看一眼就能判断“这次是正常跑完了，还是卡住/报错了”，并且能直接看到最后的关键日志。
+- OpenClaw CLI 增加 `openclaw research runner collect`：
+  - 支持 `--json` 输出结构化复盘包（方便后续给审计/编排器消费）。
+  - 也支持默认的人类可读输出（更适合你在终端里快速扫一遍）。
+
+### 本轮验证
+
+- Phase 3.3 定向单测（60 秒超时）通过：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts src/cli/research-runner-cli.test.ts`

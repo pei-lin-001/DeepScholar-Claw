@@ -9,6 +9,7 @@ export {
   type DockerRunResult,
 } from "./docker-client.ts";
 export { createFsRunStore, type RunStore } from "./run-store-fs.ts";
+export { collectRunSummary, type RunCollectedSnapshot } from "./run-collector.ts";
 export {
   resolveDeepScholarHome,
   resolveRunnerProjectPaths,

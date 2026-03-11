@@ -31,6 +31,15 @@ Phase 3.1 解决的是“能发车”；Phase 3.2 解决的是“出了事故能
 | DONE | OpenClaw CLI 增加 runner list        | `openclaw research runner list --project-id p1 [--json]` 可用 |
 | DONE | Docker stop 幂等（容器已消失不报错） | abort/timeout cleanup 不因 `No such container` 这类情况失败   |
 
+## 阶段任务看板（Phase 3.3）
+
+Phase 3.3 的目标是把“产物散落在目录里”升级为“一键可复盘的汇总包”。
+
+| 状态 | 任务                       | 结果                                                     |
+| ---- | -------------------------- | -------------------------------------------------------- |
+| TODO | Runner collect（汇总复盘） | 可输出 run 状态、metrics 摘要、日志尾部片段、artifacts   |
+| TODO | OpenClaw CLI 接入 collect  | `openclaw research runner collect --project-id --run-id` |
+
 ## 目录与落盘约定
 
 默认 home 为 `~/.deepscholar`（可用 CLI `--home` 覆盖），运行产物落在：
@@ -114,6 +123,33 @@ node --import tsx src/index.ts research runner smoke \
 # 列出该项目下所有 runs（json / 人类可读都行）
 node --import tsx src/index.ts research runner list \
   --project-id p1 \
+  --home "$HOME_DIR" \
+  --json
+```
+
+## Phase 3.3 验收（开发者侧）
+
+### 1) 单元测试（60 秒超时）
+
+```bash
+perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run \
+  services/runner/src/*.test.ts \
+  src/cli/research-runner-cli.test.ts
+```
+
+### 2) CLI（一键复盘）
+
+```bash
+HOME_DIR="$(mktemp -d)"
+
+node --import tsx src/index.ts research runner smoke \
+  --project-id p1 \
+  --home "$HOME_DIR" \
+  --json
+
+node --import tsx src/index.ts research runner collect \
+  --project-id p1 \
+  --run-id "<runId>" \
   --home "$HOME_DIR" \
   --json
 ```
