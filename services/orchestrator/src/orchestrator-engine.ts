@@ -9,3 +9,5 @@ export {
   approveBudgetApproval,
   rejectBudgetApproval,
 } from "./orchestrator-budget.ts";
+
+export { recordExperimentRunResult } from "./orchestrator-experiment.ts";

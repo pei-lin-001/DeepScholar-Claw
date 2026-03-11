@@ -42,6 +42,7 @@ export {
   abortProject,
   approveBudgetApproval,
   freezeProjectPlan,
+  recordExperimentRunResult,
   rejectBudgetApproval,
   requestBudgetApproval,
   resumeProject,

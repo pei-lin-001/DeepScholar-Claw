@@ -9,7 +9,7 @@ export type ExperimentRunStatus =
   | "aborted"
   | "timeout";
 
-const RUN_STATUSES: readonly ExperimentRunStatus[] = [
+export const EXPERIMENT_RUN_STATUSES: readonly ExperimentRunStatus[] = [
   "queued",
   "running",
   "succeeded",
@@ -17,6 +17,10 @@ const RUN_STATUSES: readonly ExperimentRunStatus[] = [
   "aborted",
   "timeout",
 ];
+
+export function isExperimentRunStatus(value: string): value is ExperimentRunStatus {
+  return isOneOf(value, EXPERIMENT_RUN_STATUSES);
+}
 
 export type ExperimentFailureType = "infrastructure" | "implementation" | "scientific";
 
@@ -135,9 +139,9 @@ export function validateExperimentRun(run: ExperimentRun): ValidationIssue[] {
   pushIf(issues, !isNonEmptyText(run.experimentId), "experimentId", "experimentId 不能为空");
   pushIf(
     issues,
-    !isOneOf(run.status, RUN_STATUSES),
+    !isOneOf(run.status, EXPERIMENT_RUN_STATUSES),
     "status",
-    `状态必须是 ${RUN_STATUSES.join("/")}`,
+    `状态必须是 ${EXPERIMENT_RUN_STATUSES.join("/")}`,
   );
   pushIf(issues, !isIsoTimestamp(run.createdAt), "createdAt", "createdAt 必须是合法时间戳");
   pushIf(issues, !isIsoTimestamp(run.updatedAt), "updatedAt", "updatedAt 必须是合法时间戳");

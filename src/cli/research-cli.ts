@@ -10,6 +10,7 @@ import {
 } from "../../services/paper-intel/src/index.js";
 import { defaultRuntime } from "../runtime.js";
 import { runCommandWithRuntime } from "./cli-utils.js";
+import { registerResearchExperimentCli } from "./research-experiment-cli.js";
 import { registerResearchOrchestratorCli } from "./research-orchestrator-cli.js";
 import { registerResearchRunnerCli } from "./research-runner-cli.js";
 
@@ -74,6 +75,7 @@ export function registerResearchCli(program: Command) {
   registerLiteratureCli(research);
   registerResearchOrchestratorCli(research);
   registerResearchRunnerCli(research);
+  registerResearchExperimentCli(research);
 }
 
 function registerLiteratureCli(research: Command) {

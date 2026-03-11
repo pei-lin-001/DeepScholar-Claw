@@ -1,5 +1,7 @@
 import type { ResearchPhase } from "./phases.ts";
 import type { ResearchPlan } from "./plan.ts";
+import type { ExperimentRunStatus } from "./runs.ts";
+import { isExperimentRunStatus } from "./runs.ts";
 import type { ResearchStep } from "./steps.ts";
 import { isIsoTimestamp, type IsoTimestamp } from "./time.ts";
 import { isNonEmptyText, pushIf, type ValidationIssue } from "./validation.ts";
@@ -46,6 +48,8 @@ export type ResearchProject = {
   readonly proposals: readonly IdeaProposal[];
   readonly approvedProposalId?: string;
   readonly pendingApprovalRequestIds: readonly string[];
+  readonly latestRunId?: string;
+  readonly latestRunStatus?: ExperimentRunStatus;
 };
 
 export function validateIdeaProposal(proposal: IdeaProposal): ValidationIssue[] {
@@ -82,6 +86,17 @@ export function validateResearchProject(project: ResearchProject): ValidationIss
   pushIf(issues, !isNonEmptyText(project.topic), "topic", "topic 不能为空");
   pushIf(issues, !isIsoTimestamp(project.createdAt), "createdAt", "createdAt 必须是合法时间戳");
   pushIf(issues, !isIsoTimestamp(project.updatedAt), "updatedAt", "updatedAt 必须是合法时间戳");
+  if (project.latestRunId !== undefined) {
+    pushIf(issues, !isNonEmptyText(project.latestRunId), "latestRunId", "latestRunId 不能为空");
+  }
+  if (project.latestRunStatus !== undefined) {
+    pushIf(
+      issues,
+      !isExperimentRunStatus(project.latestRunStatus),
+      "latestRunStatus",
+      "latestRunStatus 必须是合法状态",
+    );
+  }
   for (const proposal of project.proposals) {
     issues.push(...validateIdeaProposal(proposal));
   }

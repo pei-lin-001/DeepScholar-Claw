@@ -79,6 +79,8 @@ import {
 } from "./project.ts";
 import {
   createExperimentRun,
+  EXPERIMENT_RUN_STATUSES,
+  isExperimentRunStatus,
   type CreateExperimentRunInput,
   type ExperimentArtifact,
   type ExperimentExecutionRef,
@@ -108,6 +110,7 @@ export {
   createEvidenceBinding,
   createExperimentSpec,
   createExperimentRun,
+  EXPERIMENT_RUN_STATUSES,
   createProjectCharter,
   createResearchProject,
   createResearchPlanDraft,
@@ -117,6 +120,7 @@ export {
   isAssertionVerified,
   isClaimVerified,
   isIsoTimestamp,
+  isExperimentRunStatus,
   isOneOf,
   isResearchStep,
   nowIsoTimestamp,

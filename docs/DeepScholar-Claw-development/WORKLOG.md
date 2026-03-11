@@ -168,3 +168,22 @@
 
 - Phase 3.3 定向单测（60 秒超时）通过：
   - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts src/cli/research-runner-cli.test.ts`
+
+### 新增交付（Phase 3.4：编排器接入 Runner（Step8 发车并写回 Step9））
+
+- 现在 Step8 不再只是“停在那的一张牌子”，而是真的能发车跑一次实验：
+  - 新增 `openclaw research experiment run`：它会先检查项目是否真的处在 `step8_cloud_experiment` 且预算已经盖章，然后才允许执行。
+  - 执行时会调用 Runner 跑一次 smoke（Docker 沙箱），拿到 runId 与最终状态。
+- 现在项目不会再“跑完了但系统不知道跑了什么”：
+  - ResearchProject 增加 `latestRunId/latestRunStatus`，把最近一次实验的编号与状态写进项目元数据里。
+  - 这为后续做证据绑定（runGroupId）与复盘定位提供了明确锚点。
+- 成功才允许进入 Step9，失败不会偷偷推进：
+  - 如果 run 成功：编排器会拉起 `experimentCompleted` 门闩，并把项目从 Step8 推进到 `step9_result_validation`。
+  - 如果 run 失败/超时/中止：只会把这次 run 记到账本里，项目仍停留在 Step8，避免“失败当成功”污染流程。
+- 全程留痕可追溯：
+  - 写回项目会同时写 checkpoint 与 audit log，保证“状态变化”和“证据记录”是一体的。
+
+### 本轮验证
+
+- contracts + orchestrator + CLI 定向测试在 60 秒内通过（含 Step8->Step9 桥接测试）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/orchestrator/src/*.test.ts services/runner/src/*.test.ts packages/deepscholar-contracts/src/*.test.ts src/cli/*.test.ts`
