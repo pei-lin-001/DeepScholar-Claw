@@ -6,6 +6,7 @@ import {
 } from "../../services/orchestrator/src/index.js";
 
 export type CliRuntime = {
+  readonly log: (...args: unknown[]) => void;
   readonly error: (message: string) => void;
   readonly exit: (code: number) => void;
 };
@@ -61,10 +62,11 @@ export function printJsonOrSummary(
   opts: Record<string, unknown>,
   value: unknown,
   summary: string,
+  log: (...args: unknown[]) => void = console.log,
 ): void {
   if (opts.json) {
-    console.log(JSON.stringify(value, null, 2));
+    log(JSON.stringify(value, null, 2));
     return;
   }
-  console.log(summary);
+  log(summary);
 }

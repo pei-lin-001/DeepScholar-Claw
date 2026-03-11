@@ -81,3 +81,13 @@ node --import tsx src/index.ts research budget request --project-id p1 --purpose
 node --import tsx src/index.ts research approve --project-id p1 --request-id "<requestId>" --decided-by finance --home "$HOME_DIR"
 node --import tsx src/index.ts research status --project-id p1 --home "$HOME_DIR"
 ```
+
+## Phase 2 加固补丁（重要但不抢戏）
+
+Phase 2 主体完成后，补了一轮“把坑堵死”的工程加固，目标是让系统更不容易出现半吊子状态或脏数据混入：
+
+- 编排器保存动作具备回滚能力：checkpoint/audit 写入失败会回滚 `meta.json`
+- 记忆压缩保留原始 Working 条目：先归档原文，再写压缩摘要
+- 预算门控提前拦截：超预算申请会被明确拒绝并给出原因
+- 审批状态保护：只能处理 `pending` 的请求，避免重复审批污染链路
+- 时间戳与枚举字段校验更严格：更早暴露脏数据，而不是“先跑起来再说”

@@ -25,11 +25,14 @@ export function registerResearchPlanCli(research: Command, runtime: CliRuntime):
     .option("--actor-id <id>", "Audit actor id", "human")
     .option("--json", "Output JSON", false)
     .action(async (opts) => {
-      await runCommandWithRuntime(runtime, () => runResearchPlanFreeze(opts));
+      await runCommandWithRuntime(runtime, () => runResearchPlanFreeze(opts, runtime));
     });
 }
 
-async function runResearchPlanFreeze(opts: Record<string, unknown>): Promise<void> {
+async function runResearchPlanFreeze(
+  opts: Record<string, unknown>,
+  runtime: CliRuntime,
+): Promise<void> {
   const projectId = parseNonEmptyText(opts.projectId, "project-id");
   const draftPath = parseNonEmptyText(opts.draft, "draft");
   const draft = (await readJson<unknown>(draftPath)) as DraftPayload;
@@ -49,5 +52,6 @@ async function runResearchPlanFreeze(opts: Record<string, unknown>): Promise<voi
     opts,
     next,
     `已冻结研究计划 | 项目 ${next.projectId} | 进入步骤 ${next.step} | 状态 ${next.lifecycle}`,
+    runtime.log,
   );
 }

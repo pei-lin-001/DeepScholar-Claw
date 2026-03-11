@@ -1,7 +1,9 @@
 import { isIsoTimestamp, type IsoTimestamp } from "./time.ts";
-import { isNonEmptyText, pushIf, type ValidationIssue } from "./validation.ts";
+import { isNonEmptyText, isOneOf, pushIf, type ValidationIssue } from "./validation.ts";
 
 export type ApprovalStatus = "pending" | "approved" | "rejected";
+
+const APPROVAL_STATUSES: readonly ApprovalStatus[] = ["pending", "approved", "rejected"];
 
 export type BudgetApprovalRequest = {
   readonly requestId: string;
@@ -29,6 +31,12 @@ export function validateBudgetApprovalRequest(req: BudgetApprovalRequest): Valid
   pushIf(issues, !isIsoTimestamp(req.createdAt), "createdAt", "createdAt 必须是合法时间戳");
   pushIf(issues, !isNonEmptyText(req.requestor), "requestor", "requestor 不能为空");
   pushIf(issues, !isNonEmptyText(req.purpose), "purpose", "purpose 不能为空");
+  pushIf(
+    issues,
+    !isOneOf(req.status, APPROVAL_STATUSES),
+    "status",
+    `审批状态必须是 ${APPROVAL_STATUSES.join("/")}`,
+  );
   pushIf(issues, req.estimatedCostUsd < 0, "estimatedCostUsd", "estimatedCostUsd 不能为负数");
   pushIf(
     issues,
@@ -80,6 +88,9 @@ export function approveBudgetRequest(input: {
   readonly comments?: string;
   readonly modifiedBudgetUsd?: number;
 }): BudgetApprovalRequest {
+  if (input.request.status !== "pending") {
+    throw new Error(`只能审批 pending 状态的请求，当前状态: ${input.request.status}`);
+  }
   return {
     ...input.request,
     status: "approved",
@@ -96,6 +107,9 @@ export function rejectBudgetRequest(input: {
   readonly decidedBy: string;
   readonly comments?: string;
 }): BudgetApprovalRequest {
+  if (input.request.status !== "pending") {
+    throw new Error(`只能拒绝 pending 状态的请求，当前状态: ${input.request.status}`);
+  }
   return {
     ...input.request,
     status: "rejected",

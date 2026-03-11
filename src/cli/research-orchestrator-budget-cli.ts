@@ -34,11 +34,14 @@ export function registerResearchBudgetCli(research: Command, runtime: CliRuntime
     .option("--home <dir>", "Override DeepScholar home directory (default: ~/.deepscholar)")
     .option("--json", "Output JSON", false)
     .action(async (opts) => {
-      await runCommandWithRuntime(runtime, () => runResearchBudgetRequest(opts));
+      await runCommandWithRuntime(runtime, () => runResearchBudgetRequest(opts, runtime));
     });
 }
 
-async function runResearchBudgetRequest(opts: Record<string, unknown>): Promise<void> {
+async function runResearchBudgetRequest(
+  opts: Record<string, unknown>,
+  runtime: CliRuntime,
+): Promise<void> {
   const projectId = parseNonEmptyText(opts.projectId, "project-id");
   const deps = createOrchestratorDeps(opts.home as string | undefined);
   const result = await requestBudgetApproval(deps, {
@@ -57,5 +60,6 @@ async function runResearchBudgetRequest(opts: Record<string, unknown>): Promise<
     opts,
     result,
     `已发起预算审批 ${result.request.requestId} | 项目状态 ${result.project.lifecycle} | 待批 ${result.project.pendingApprovalRequestIds.length}`,
+    runtime.log,
   );
 }

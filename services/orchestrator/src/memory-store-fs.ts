@@ -114,6 +114,12 @@ export function createFsMemoryStore(options: FsMemoryStoreOptions = {}): MemoryS
     if (working.length === 0) {
       throw new Error("Working 记忆为空，无需压缩");
     }
+
+    // Preserve original working items in archival (re-tagged, layer stays "archival")
+    const movedLines = working
+      .map((item) => JSON.stringify({ ...item, layer: "archival" as const }))
+      .join("\n");
+
     const archived = createMemoryItem({
       memoryId: `compaction-${Date.now()}`,
       layer: "archival",
@@ -124,8 +130,14 @@ export function createFsMemoryStore(options: FsMemoryStoreOptions = {}): MemoryS
       tags: ["compaction", "working"],
       source: "orchestrator",
     });
+
     await fs.mkdir(paths.memoryDir, { recursive: true });
-    await fs.appendFile(paths.memoryArchivalPath, `${JSON.stringify(archived)}\n`, "utf8");
+    // First append all original items, then the summary
+    await fs.appendFile(
+      paths.memoryArchivalPath,
+      `${movedLines}\n${JSON.stringify(archived)}\n`,
+      "utf8",
+    );
     await fs.writeFile(paths.memoryWorkingPath, "", "utf8");
     return { archived, moved: working.length };
   }

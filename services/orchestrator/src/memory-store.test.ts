@@ -50,8 +50,11 @@ describe("memory store (fs)", () => {
 
     expect(await store.list("p1", "working")).toEqual([]);
     const archival = await store.list("p1", "archival");
-    expect(archival).toHaveLength(1);
-    expect(archival[0]?.text).toContain("Hypothesis");
+    // 2 original items preserved + 1 compaction summary
+    expect(archival).toHaveLength(3);
+    expect(archival[0]?.memoryId).toBe("w1");
+    expect(archival[1]?.memoryId).toBe("w2");
+    expect(archival[2]?.text).toContain("Hypothesis");
   });
 
   it("rejects invalid memory items", async () => {

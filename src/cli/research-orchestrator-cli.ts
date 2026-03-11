@@ -42,11 +42,11 @@ function registerResearchStart(research: Command, runtime: CliRuntime): void {
     .option("--actor-id <id>", "Audit actor id", "human")
     .option("--json", "Output JSON", false)
     .action(async (opts) => {
-      await runCommandWithRuntime(runtime, () => runResearchStart(opts));
+      await runCommandWithRuntime(runtime, () => runResearchStart(opts, runtime));
     });
 }
 
-async function runResearchStart(opts: Record<string, unknown>): Promise<void> {
+async function runResearchStart(opts: Record<string, unknown>, runtime: CliRuntime): Promise<void> {
   const topic = parseNonEmptyText(opts.topic, "topic");
   const projectId =
     opts.projectId === undefined || opts.projectId === null || opts.projectId === ""
@@ -65,6 +65,7 @@ async function runResearchStart(opts: Record<string, unknown>): Promise<void> {
     opts,
     project,
     `已创建项目 ${project.projectId} | 当前步骤 ${project.step} | 状态 ${project.lifecycle}`,
+    runtime.log,
   );
 }
 
@@ -76,11 +77,14 @@ function registerResearchStatus(research: Command, runtime: CliRuntime): void {
     .option("--home <dir>", "Override DeepScholar home directory (default: ~/.deepscholar)")
     .option("--json", "Output JSON", false)
     .action(async (opts) => {
-      await runCommandWithRuntime(runtime, () => runResearchStatus(opts));
+      await runCommandWithRuntime(runtime, () => runResearchStatus(opts, runtime));
     });
 }
 
-async function runResearchStatus(opts: Record<string, unknown>): Promise<void> {
+async function runResearchStatus(
+  opts: Record<string, unknown>,
+  runtime: CliRuntime,
+): Promise<void> {
   const projectId = parseNonEmptyText(opts.projectId, "project-id");
   const deps = createOrchestratorDeps(opts.home as string | undefined);
   const project = await deps.projects.load(projectId);
@@ -95,6 +99,7 @@ async function runResearchStatus(opts: Record<string, unknown>): Promise<void> {
     opts,
     snapshot,
     `项目 ${project.projectId} | 阶段 ${project.phase} | 步骤 ${project.step} | 状态 ${project.lifecycle} | 待批 ${pending.length}`,
+    runtime.log,
   );
 }
 
@@ -109,7 +114,7 @@ function registerResearchApprovals(research: Command, runtime: CliRuntime): void
     .option("--home <dir>", "Override DeepScholar home directory (default: ~/.deepscholar)")
     .option("--json", "Output JSON", false)
     .action(async (opts) => {
-      await runCommandWithRuntime(runtime, () => runResearchApprove(opts));
+      await runCommandWithRuntime(runtime, () => runResearchApprove(opts, runtime));
     });
 
   research
@@ -122,11 +127,14 @@ function registerResearchApprovals(research: Command, runtime: CliRuntime): void
     .option("--home <dir>", "Override DeepScholar home directory (default: ~/.deepscholar)")
     .option("--json", "Output JSON", false)
     .action(async (opts) => {
-      await runCommandWithRuntime(runtime, () => runResearchReject(opts));
+      await runCommandWithRuntime(runtime, () => runResearchReject(opts, runtime));
     });
 }
 
-async function runResearchApprove(opts: Record<string, unknown>): Promise<void> {
+async function runResearchApprove(
+  opts: Record<string, unknown>,
+  runtime: CliRuntime,
+): Promise<void> {
   const deps = createOrchestratorDeps(opts.home as string | undefined);
   const result = await approveBudgetApproval(deps, {
     projectId: parseNonEmptyText(opts.projectId, "project-id"),
@@ -139,10 +147,14 @@ async function runResearchApprove(opts: Record<string, unknown>): Promise<void> 
     opts,
     result,
     `已批准 ${result.request.requestId} | 项目状态 ${result.project.lifecycle} | 当前步骤 ${result.project.step}`,
+    runtime.log,
   );
 }
 
-async function runResearchReject(opts: Record<string, unknown>): Promise<void> {
+async function runResearchReject(
+  opts: Record<string, unknown>,
+  runtime: CliRuntime,
+): Promise<void> {
   const deps = createOrchestratorDeps(opts.home as string | undefined);
   const result = await rejectBudgetApproval(deps, {
     projectId: parseNonEmptyText(opts.projectId, "project-id"),
@@ -155,6 +167,7 @@ async function runResearchReject(opts: Record<string, unknown>): Promise<void> {
     opts,
     result,
     `已拒绝 ${result.request.requestId} | 项目状态 ${result.project.lifecycle} | 待批 ${result.project.pendingApprovalRequestIds.length}`,
+    runtime.log,
   );
 }
 
@@ -167,11 +180,14 @@ function registerResearchResume(research: Command, runtime: CliRuntime): void {
     .option("--actor-id <id>", "Audit actor id", "human")
     .option("--json", "Output JSON", false)
     .action(async (opts) => {
-      await runCommandWithRuntime(runtime, () => runResearchResume(opts));
+      await runCommandWithRuntime(runtime, () => runResearchResume(opts, runtime));
     });
 }
 
-async function runResearchResume(opts: Record<string, unknown>): Promise<void> {
+async function runResearchResume(
+  opts: Record<string, unknown>,
+  runtime: CliRuntime,
+): Promise<void> {
   const deps = createOrchestratorDeps(opts.home as string | undefined);
   const project = await resumeProject(deps, {
     projectId: parseNonEmptyText(opts.projectId, "project-id"),
@@ -182,6 +198,7 @@ async function runResearchResume(opts: Record<string, unknown>): Promise<void> {
     opts,
     project,
     `已恢复项目 ${project.projectId} | 状态 ${project.lifecycle} | 当前步骤 ${project.step}`,
+    runtime.log,
   );
 }
 
@@ -195,11 +212,11 @@ function registerResearchAbort(research: Command, runtime: CliRuntime): void {
     .option("--actor-id <id>", "Audit actor id", "human")
     .option("--json", "Output JSON", false)
     .action(async (opts) => {
-      await runCommandWithRuntime(runtime, () => runResearchAbort(opts));
+      await runCommandWithRuntime(runtime, () => runResearchAbort(opts, runtime));
     });
 }
 
-async function runResearchAbort(opts: Record<string, unknown>): Promise<void> {
+async function runResearchAbort(opts: Record<string, unknown>, runtime: CliRuntime): Promise<void> {
   const deps = createOrchestratorDeps(opts.home as string | undefined);
   const project = await abortProject(deps, {
     projectId: parseNonEmptyText(opts.projectId, "project-id"),
@@ -207,5 +224,10 @@ async function runResearchAbort(opts: Record<string, unknown>): Promise<void> {
     actorId: parseNonEmptyText(opts.actorId, "actor-id", "human"),
   });
 
-  printJsonOrSummary(opts, project, `已终止项目 ${project.projectId} | 状态 ${project.lifecycle}`);
+  printJsonOrSummary(
+    opts,
+    project,
+    `已终止项目 ${project.projectId} | 状态 ${project.lifecycle}`,
+    runtime.log,
+  );
 }

@@ -113,12 +113,12 @@ async function runLiteratureSearch(opts: Record<string, unknown>) {
     openAlexPoliteEmail,
   });
   if (opts.json) {
-    console.log(JSON.stringify(papers, null, 2));
+    defaultRuntime.log(JSON.stringify(papers, null, 2));
     return;
   }
   for (const paper of papers) {
     const year = paper.year ? String(paper.year) : "????";
-    console.log(`${paper.paperId} | ${year} | ${paper.title}`);
+    defaultRuntime.log(`${paper.paperId} | ${year} | ${paper.title}`);
   }
 }
 
@@ -158,7 +158,7 @@ async function runLiteratureIngest(opts: Record<string, unknown>) {
       requireOpenAccessPdf: Boolean(opts.requireOpenAccessPdf),
     },
   });
-  console.log(JSON.stringify(result.summary, null, 2));
+  defaultRuntime.log(JSON.stringify(result.summary, null, 2));
 }
 
 function registerLiteratureGrobid(literature: Command) {
@@ -184,7 +184,7 @@ async function runLiteratureGrobid(opts: Record<string, unknown>) {
     pdfBytes,
     grobidBaseUrl: parseString(opts.grobidUrl, "grobid-url", DEFAULT_GROBID_URL),
   });
-  console.log(tei.slice(0, 200));
+  defaultRuntime.log(tei.slice(0, 200));
 }
 
 function registerLiteratureGraphBuild(literature: Command) {
@@ -212,7 +212,7 @@ async function runLiteratureGraphBuild(opts: Record<string, unknown>) {
     homeDir: opts.home as string | undefined,
     neo4j,
   });
-  console.log(JSON.stringify(summary, null, 2));
+  defaultRuntime.log(JSON.stringify(summary, null, 2));
 }
 
 function registerLiteratureQuery(literature: Command) {
@@ -256,13 +256,13 @@ async function runLiteratureQuery(opts: Record<string, unknown>) {
   });
 
   if (opts.json) {
-    console.log(JSON.stringify(result, null, 2));
+    defaultRuntime.log(JSON.stringify(result, null, 2));
     return;
   }
 
   for (const hit of result.hits) {
-    console.log(`${hit.paperId} | score=${hit.score} | ${hit.title}`);
-    console.log(`  cited: ${hit.neighbors.citedPaperIds.join(", ") || "(none)"}`);
-    console.log(`  authors: ${hit.neighbors.authorKeys.join(", ") || "(none)"}`);
+    defaultRuntime.log(`${hit.paperId} | score=${hit.score} | ${hit.title}`);
+    defaultRuntime.log(`  cited: ${hit.neighbors.citedPaperIds.join(", ") || "(none)"}`);
+    defaultRuntime.log(`  authors: ${hit.neighbors.authorKeys.join(", ") || "(none)"}`);
   }
 }

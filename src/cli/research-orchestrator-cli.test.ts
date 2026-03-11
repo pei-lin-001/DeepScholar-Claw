@@ -22,6 +22,7 @@ async function createTempDir(prefix: string): Promise<string> {
 }
 
 function createProgram(runtime: {
+  log: (...args: unknown[]) => void;
   error: (message: string) => void;
   exit: (code: number) => void;
 }): Command {
@@ -158,6 +159,7 @@ describe("research orchestrator CLI", () => {
   it("runs a budget approval closed loop via CLI", async () => {
     const homeDir = await createTempDir("deepscholar-cli-home-");
     const runtime = {
+      log: console.log,
       error: vi.fn(),
       exit: (code: number) => {
         throw new Error(`exit ${code}`);

@@ -1,10 +1,21 @@
 import { isIsoTimestamp, type IsoTimestamp } from "./time.ts";
-import { isFiniteNumber, isNonEmptyText, pushIf, type ValidationIssue } from "./validation.ts";
+import {
+  isFiniteNumber,
+  isNonEmptyText,
+  isOneOf,
+  pushIf,
+  type ValidationIssue,
+} from "./validation.ts";
 
 export type ClaimStrength = "strong" | "moderate" | "weak";
 export type AssertionType = "numerical" | "comparative" | "qualitative";
 export type ClaimAuditStatus = "draft" | "verified" | "disputed";
 export type ClaimAggregation = "mean" | "median" | "best";
+
+const CLAIM_STRENGTHS: readonly ClaimStrength[] = ["strong", "moderate", "weak"];
+const ASSERTION_TYPES: readonly AssertionType[] = ["numerical", "comparative", "qualitative"];
+const CLAIM_AUDIT_STATUSES: readonly ClaimAuditStatus[] = ["draft", "verified", "disputed"];
+const CLAIM_AGGREGATIONS: readonly ClaimAggregation[] = ["mean", "median", "best"];
 
 export type BaselineComparison = {
   readonly baselineRunGroupId: string;
@@ -141,6 +152,12 @@ export function validateEvidenceBinding(evidence: EvidenceBinding): ValidationIs
   const issues: ValidationIssue[] = [];
   pushIf(issues, !isNonEmptyText(evidence.runGroupId), "evidence.runGroupId", "运行组编号不能为空");
   pushIf(issues, !isNonEmptyText(evidence.metricName), "evidence.metricName", "指标名称不能为空");
+  pushIf(
+    issues,
+    !isOneOf(evidence.aggregation, CLAIM_AGGREGATIONS),
+    "evidence.aggregation",
+    `聚合方式必须是 ${CLAIM_AGGREGATIONS.join("/")}`,
+  );
   pushIf(issues, evidence.values.length === 0, "evidence.values", "证据数值(values)不能为空");
   for (const value of evidence.values) {
     pushIf(issues, !isFiniteNumber(value), "evidence.values", "证据数值(values)必须是有限数字");
@@ -178,6 +195,18 @@ export function validateEvidenceBinding(evidence: EvidenceBinding): ValidationIs
 export function validateAssertion(assertion: Assertion): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
   pushIf(issues, !isNonEmptyText(assertion.assertionId), "assertionId", "断言编号不能为空");
+  pushIf(
+    issues,
+    !isOneOf(assertion.type, ASSERTION_TYPES),
+    "type",
+    `断言类型必须是 ${ASSERTION_TYPES.join("/")}`,
+  );
+  pushIf(
+    issues,
+    !isOneOf(assertion.auditStatus, CLAIM_AUDIT_STATUSES),
+    "auditStatus",
+    `审计状态必须是 ${CLAIM_AUDIT_STATUSES.join("/")}`,
+  );
   issues.push(...validateEvidenceBinding(assertion.evidence));
 
   if (assertion.type === "comparative") {
@@ -223,6 +252,12 @@ export function validateClaim(claim: Claim): ValidationIssue[] {
   pushIf(issues, !isNonEmptyText(claim.claimId), "claimId", "结论编号不能为空");
   pushIf(issues, !isNonEmptyText(claim.paperSection), "paperSection", "论文位置不能为空");
   pushIf(issues, !isNonEmptyText(claim.content), "content", "结论内容不能为空");
+  pushIf(
+    issues,
+    !isOneOf(claim.strength, CLAIM_STRENGTHS),
+    "strength",
+    `结论强度必须是 ${CLAIM_STRENGTHS.join("/")}`,
+  );
   pushIf(issues, claim.assertions.length === 0, "assertions", "结论必须至少包含一个断言");
   for (const assertion of claim.assertions) {
     issues.push(...validateAssertion(assertion));
