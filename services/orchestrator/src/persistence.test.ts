@@ -1,7 +1,12 @@
 import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { createAuditEntry, createResearchProject, nowIsoTimestamp } from "@deepscholar/contracts";
+import {
+  createAuditEntry,
+  createResearchProject,
+  nowIsoTimestamp,
+  type ResearchProject,
+} from "@deepscholar/contracts";
 import { describe, expect, it } from "vitest";
 import { createFsAuditLogStore } from "./audit-log-fs.ts";
 import { createFsProjectStore } from "./project-store-fs.ts";
@@ -29,11 +34,19 @@ describe("orchestrator persistence", () => {
     await store.init(project);
     await store.checkpoint(project, "init");
 
-    const advanced = { ...project, step: "step1_literature_crawl", updatedAt: nowIsoTimestamp() };
+    const advanced: ResearchProject = {
+      ...project,
+      step: "step1_literature_crawl",
+      updatedAt: nowIsoTimestamp(),
+    };
     await store.save(advanced);
     await store.checkpoint(advanced, "advance");
 
-    const corrupted = { ...advanced, step: "step12_human_final", updatedAt: nowIsoTimestamp() };
+    const corrupted: ResearchProject = {
+      ...advanced,
+      step: "step12_human_final",
+      updatedAt: nowIsoTimestamp(),
+    };
     await store.save(corrupted);
 
     const restored = await store.restoreLatestCheckpoint("p1");

@@ -1,5 +1,8 @@
-import { type ExperimentRun, type ResearchProject } from "@deepscholar/contracts";
 import type { Command } from "commander";
+import type {
+  ExperimentRun,
+  ResearchProject,
+} from "../../packages/deepscholar-contracts/src/index.ts";
 import {
   createFsAuditLogStore,
   createFsBudgetApprovalStore,

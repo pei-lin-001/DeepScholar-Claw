@@ -13,7 +13,7 @@ async function createTempDir(prefix: string): Promise<string> {
 
 function createProgram(runtime: {
   log: (...args: unknown[]) => void;
-  error: (message: string) => void;
+  error: (...args: unknown[]) => void;
   exit: (code: number) => void;
 }): Command {
   const program = new Command();

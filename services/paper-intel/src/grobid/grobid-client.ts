@@ -24,7 +24,8 @@ export function createGrobidClient(options: GrobidClientOptions) {
     await options.rateLimiter.acquireSlot();
 
     const form = new FormData();
-    form.append("input", new Blob([pdfBytes], { type: "application/pdf" }), fileName);
+    const payload = Buffer.from(pdfBytes);
+    form.append("input", new Blob([payload], { type: "application/pdf" }), fileName);
 
     const url = new URL("/api/processFulltextDocument", options.baseUrl).toString();
     const res = await options.fetch(url, { method: "POST", body: form });
