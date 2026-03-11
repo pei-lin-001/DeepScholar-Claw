@@ -256,3 +256,34 @@
 
 - orchestrator 定向单测在 60 秒内通过，且覆盖 “阈值=1 立即熔断” 与 “阈值=2 连续两次才熔断”：
   - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/orchestrator/src/*.test.ts`
+
+### 新增交付（Phase 4：论文生成 + 评审（Step9-12 闭环））
+
+- 现在 Step9-12 不再停留在“计划里写了”，而是能真实推进的工程闭环：
+  - Step9 结果验证：编排器支持写回 `resultsVerified=true`，并推进到 Step10（写作阶段）。
+  - Step10 论文撰写：落盘一个“可复盘的论文包”，包含 `main.tex / refs.bib / draft.json`。
+  - Step11 模拟同行评审：3 评委结构化评审输入 + 汇总裁决 + 分歧门控（分差过大提示触发辩论）。
+  - Step12 人类终审：评审完成后编排器可推进到终审步骤，形成“给人看”的最终包。
+- 论文与评审契约（contracts）补齐到“能用、能校验、能测”：
+  - PaperDraft：章节结构、引用键、图表占位、编译产物路径等。
+  - PeerReview/ReviewDecision：7 维度量化打分表、裁决枚举、阈值结构。
+- 写作服务（services/writing）落地：
+  - LaTeX 渲染：生成通用 `article` 模板的 `main.tex`（会标注 venue，但不做静默降级）。
+  - refs.bib 占位：根据 `\\cite{}` 自动生成可编译的 BibTeX 占位条目。
+  - 引用一致性检查：从 `main.tex` 抽取 cite keys，并对照本地 `literature/papers/*.json` 的 `paperId` 做缺失报告（缺失会显式报错）。
+  - 可注入 LaTeX 编译器：提供 docker 编译实现与清晰失败日志落盘（不依赖本机 Docker/TeXLive 的单测 fake compiler 也能验证闭环）。
+- 评审服务（services/review）落地：
+  - 3 评委平均分裁决：按阈值输出 accept/minor/major/reject。
+  - 分歧门控：最高分-最低分 > 3 触发 debate 标记（后续可接辩论回合）。
+- 编排器 Phase4 bridge 补齐：
+  - 新增写回入口：`recordResultsVerified / recordDraftWritten / recordPeerReviewDecision`。
+  - 支持 major revision 回退：Step11 遇到大修会回到 Step10，并重置 `draftWritten=false`，避免“没重写也能直接再评审”。
+- CLI 闭环接入完成（研究控制面可跑通 Phase4）：
+  - `openclaw research validate`（结果验证推进）
+  - `openclaw research paper write/compile`（草稿包落盘 + 编译成功自动推进到评审）
+  - `openclaw research review decide`（评审聚合 + 写回编排器推进/回退）
+
+### 本轮验证
+
+- Phase 4 定向测试在 60 秒超时闸门内通过（contracts + writing + review + orchestrator + CLI）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/orchestrator/src/*.test.ts services/runner/src/*.test.ts services/paper-intel/src/*.test.ts packages/deepscholar-contracts/src/*.test.ts src/cli/*.test.ts`

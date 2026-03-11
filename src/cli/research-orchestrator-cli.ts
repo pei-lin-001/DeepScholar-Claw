@@ -17,15 +17,18 @@ import {
   printJsonOrSummary,
 } from "./research-orchestrator-helpers.js";
 import { registerResearchPlanCli } from "./research-orchestrator-plan-cli.js";
+import { registerResearchPhase4Cli, type Phase4CliDepsFactory } from "./research-phase4-cli.js";
 
 export function registerResearchOrchestratorCli(
   research: Command,
   runtime: CliRuntime = defaultRuntime,
+  phase4DepsFactory?: Phase4CliDepsFactory,
 ) {
   registerResearchStart(research, runtime);
   registerResearchStatus(research, runtime);
   registerResearchPlanCli(research, runtime);
   registerResearchBudgetCli(research, runtime);
+  registerResearchPhase4Cli(research, runtime, phase4DepsFactory);
   registerResearchApprovals(research, runtime);
   registerResearchResume(research, runtime);
   registerResearchAbort(research, runtime);

@@ -11,3 +11,9 @@ export {
 } from "./orchestrator-budget.ts";
 
 export { recordExperimentRunResult } from "./orchestrator-experiment.ts";
+
+export { recordResultsVerified } from "./orchestrator-validation.ts";
+
+export { recordDraftWritten } from "./orchestrator-writing.ts";
+
+export { recordPeerReviewDecision } from "./orchestrator-review.ts";

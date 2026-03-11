@@ -557,7 +557,19 @@ importers:
         specifier: workspace:*
         version: link:../../packages/deepscholar-contracts
 
+  services/review:
+    dependencies:
+      '@deepscholar/contracts':
+        specifier: workspace:*
+        version: link:../../packages/deepscholar-contracts
+
   services/runner:
+    dependencies:
+      '@deepscholar/contracts':
+        specifier: workspace:*
+        version: link:../../packages/deepscholar-contracts
+
+  services/writing:
     dependencies:
       '@deepscholar/contracts':
         specifier: workspace:*
