@@ -47,7 +47,7 @@ function smokeScript(holdSeconds: number): string {
   ].join("; ");
 }
 
-function buildRunArgs(input: {
+export function buildRunArgs(input: {
   readonly containerName: string;
   readonly image: string;
   readonly runDir: string;
@@ -64,6 +64,8 @@ function buildRunArgs(input: {
     ...dockerSandboxArgs(input.sandboxProfile),
     "-v",
     `${input.runDir}:/out`,
+    "-w",
+    "/out",
     input.image,
     ...input.command,
   ];
