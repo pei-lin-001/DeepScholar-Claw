@@ -1,3 +1,11 @@
+import {
+  REVIEWER_PERSONAS,
+  REVIEW_VERDICTS,
+  validateReviewRubric,
+  type ReviewerPersona,
+  type ReviewRubric,
+  type ReviewVerdict,
+} from "./review-rubric.ts";
 import { isIsoTimestamp, type IsoTimestamp } from "./time.ts";
 import {
   isFiniteNumber,
@@ -8,107 +16,7 @@ import {
   type ValidationIssue,
 } from "./validation.ts";
 
-export type ReviewerPersona = "theory" | "experimental" | "application";
-
-export const REVIEWER_PERSONAS: readonly ReviewerPersona[] = [
-  "theory",
-  "experimental",
-  "application",
-];
-
-export function isReviewerPersona(value: string): value is ReviewerPersona {
-  return isOneOf(value, REVIEWER_PERSONAS);
-}
-
-export type ReviewVerdict = "accept" | "minor_revision" | "major_revision" | "reject";
-
-export const REVIEW_VERDICTS: readonly ReviewVerdict[] = [
-  "accept",
-  "minor_revision",
-  "major_revision",
-  "reject",
-];
-
-export function isReviewVerdict(value: string): value is ReviewVerdict {
-  return isOneOf(value, REVIEW_VERDICTS);
-}
-
-export type ReviewDimensionId =
-  | "originality"
-  | "soundness"
-  | "experimentalRigor"
-  | "clarity"
-  | "relatedWorkCompleteness"
-  | "practicalImpact"
-  | "ethicsAndReproducibility";
-
-export const REVIEW_DIMENSIONS: readonly ReviewDimensionId[] = [
-  "originality",
-  "soundness",
-  "experimentalRigor",
-  "clarity",
-  "relatedWorkCompleteness",
-  "practicalImpact",
-  "ethicsAndReproducibility",
-];
-
-export function isReviewDimensionId(value: string): value is ReviewDimensionId {
-  return isOneOf(value, REVIEW_DIMENSIONS);
-}
-
-export type ReviewThresholds = {
-  readonly accept: number;
-  readonly minorRevision: number;
-  readonly majorRevision: number;
-  readonly reject: number;
-};
-
-export const DEFAULT_REVIEW_THRESHOLDS: ReviewThresholds = {
-  accept: 7,
-  minorRevision: 5.5,
-  majorRevision: 4,
-  reject: 0,
-};
-
-export type ReviewDimensionAssessment = {
-  readonly score: number;
-  readonly evidence: string;
-};
-
-export type ReviewRubric = {
-  readonly dimensions: Readonly<Record<ReviewDimensionId, ReviewDimensionAssessment>>;
-  readonly totalScore: number;
-  readonly thresholds: ReviewThresholds;
-};
-
-export type CreateReviewRubricInput = {
-  readonly dimensions: Readonly<Record<ReviewDimensionId, ReviewDimensionAssessment>>;
-  readonly thresholds?: ReviewThresholds;
-  readonly totalScore?: number;
-};
-
-const REVIEW_SCORE_MIN = 1;
-const REVIEW_SCORE_MAX = 10;
-
-function mean(numbers: readonly number[]): number {
-  if (numbers.length === 0) {
-    return 0;
-  }
-  const sum = numbers.reduce((acc, value) => acc + value, 0);
-  return sum / numbers.length;
-}
-
-function scoresFromDimensions(
-  dimensions: Readonly<Record<ReviewDimensionId, ReviewDimensionAssessment>>,
-): number[] {
-  return REVIEW_DIMENSIONS.map((dimension) => dimensions[dimension].score);
-}
-
-export function createReviewRubric(input: CreateReviewRubricInput): ReviewRubric {
-  const thresholds = input.thresholds ?? DEFAULT_REVIEW_THRESHOLDS;
-  const totalScore = input.totalScore ?? mean(scoresFromDimensions(input.dimensions));
-  return { dimensions: input.dimensions, thresholds, totalScore };
-}
+export * from "./review-rubric.ts";
 
 export type PeerReview = {
   readonly reviewId: string;
@@ -178,77 +86,60 @@ export type ReviewRound = {
   readonly decision: ReviewDecision;
 };
 
-function validateThresholds(thresholds: ReviewThresholds): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
-  pushIf(issues, !isFiniteNumber(thresholds.accept), "thresholds.accept", "accept 必须是数字");
-  pushIf(
-    issues,
-    !isFiniteNumber(thresholds.minorRevision),
-    "thresholds.minorRevision",
-    "minorRevision 必须是数字",
-  );
-  pushIf(
-    issues,
-    !isFiniteNumber(thresholds.majorRevision),
-    "thresholds.majorRevision",
-    "majorRevision 必须是数字",
-  );
-  pushIf(issues, !isFiniteNumber(thresholds.reject), "thresholds.reject", "reject 必须是数字");
+const REVIEW_SCORE_MIN = 1;
+const REVIEW_SCORE_MAX = 10;
 
-  pushIf(
-    issues,
-    thresholds.accept < thresholds.minorRevision ||
-      thresholds.minorRevision < thresholds.majorRevision ||
-      thresholds.majorRevision < thresholds.reject,
-    "thresholds",
-    "阈值必须满足 accept >= minorRevision >= majorRevision >= reject",
-  );
-  return issues;
-}
-
-function validateDimensionAssessment(
-  dimension: ReviewDimensionId,
-  assessment: ReviewDimensionAssessment,
-): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
-  pushIf(
-    issues,
-    !isFiniteNumber(assessment.score) ||
-      assessment.score < REVIEW_SCORE_MIN ||
-      assessment.score > REVIEW_SCORE_MAX,
-    `dimensions.${dimension}.score`,
-    `score 必须在 ${REVIEW_SCORE_MIN}-${REVIEW_SCORE_MAX} 范围内`,
-  );
-  pushIf(
-    issues,
-    !isNonEmptyText(assessment.evidence),
-    `dimensions.${dimension}.evidence`,
-    "evidence 不能为空",
-  );
-  return issues;
-}
-
-export function validateReviewRubric(rubric: ReviewRubric): ValidationIssue[] {
-  const issues: ValidationIssue[] = [];
-  issues.push(...validateThresholds(rubric.thresholds));
-  pushIf(
-    issues,
-    !isFiniteNumber(rubric.totalScore) ||
-      rubric.totalScore < REVIEW_SCORE_MIN ||
-      rubric.totalScore > REVIEW_SCORE_MAX,
-    "totalScore",
-    `totalScore 必须在 ${REVIEW_SCORE_MIN}-${REVIEW_SCORE_MAX} 范围内`,
-  );
-
-  for (const dimension of REVIEW_DIMENSIONS) {
-    issues.push(...validateDimensionAssessment(dimension, rubric.dimensions[dimension]));
+function requireNonEmptyText(
+  issues: ValidationIssue[],
+  value: unknown,
+  field: string,
+  message: string,
+): void {
+  if (typeof value !== "string") {
+    issues.push({ field, message });
+    return;
   }
-  return issues;
+  pushIf(issues, !isNonEmptyText(value), field, message);
 }
 
-function validateTextArray(values: readonly string[], field: string): ValidationIssue[] {
+function requireIsoTimestamp(
+  issues: ValidationIssue[],
+  value: unknown,
+  field: string,
+  message: string,
+): void {
+  if (typeof value !== "string") {
+    issues.push({ field, message });
+    return;
+  }
+  pushIf(issues, !isIsoTimestamp(value), field, message);
+}
+
+function requireOneOf<T extends string>(
+  issues: ValidationIssue[],
+  value: unknown,
+  allowed: readonly T[],
+  field: string,
+  message: string,
+): void {
+  if (typeof value !== "string") {
+    issues.push({ field, message });
+    return;
+  }
+  pushIf(issues, !isOneOf(value, allowed), field, message);
+}
+
+function validateTextArray(values: unknown, field: string): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
+  if (!Array.isArray(values)) {
+    issues.push({ field, message: "必须是字符串数组" });
+    return issues;
+  }
   for (const [idx, value] of values.entries()) {
+    if (typeof value !== "string") {
+      issues.push({ field: `${field}[${idx}]`, message: "内容必须是字符串" });
+      continue;
+    }
     pushIf(issues, !isNonEmptyText(value), `${field}[${idx}]`, "内容不能为空");
   }
   return issues;
@@ -256,21 +147,23 @@ function validateTextArray(values: readonly string[], field: string): Validation
 
 export function validatePeerReview(review: PeerReview): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  pushIf(issues, !isNonEmptyText(review.reviewId), "reviewId", "reviewId 不能为空");
-  pushIf(issues, !isNonEmptyText(review.projectId), "projectId", "projectId 不能为空");
-  pushIf(issues, !isNonEmptyText(review.draftId), "draftId", "draftId 不能为空");
-  pushIf(issues, !isNonEmptyText(review.reviewerId), "reviewerId", "reviewerId 不能为空");
-  pushIf(
+  requireNonEmptyText(issues, review.reviewId, "reviewId", "reviewId 不能为空");
+  requireNonEmptyText(issues, review.projectId, "projectId", "projectId 不能为空");
+  requireNonEmptyText(issues, review.draftId, "draftId", "draftId 不能为空");
+  requireNonEmptyText(issues, review.reviewerId, "reviewerId", "reviewerId 不能为空");
+  requireOneOf(
     issues,
-    !isOneOf(review.persona, REVIEWER_PERSONAS),
+    review.persona,
+    REVIEWER_PERSONAS,
     "persona",
     `persona 必须是 ${REVIEWER_PERSONAS.join("/")}`,
   );
-  pushIf(issues, !isIsoTimestamp(review.createdAt), "createdAt", "createdAt 必须是合法时间戳");
-  pushIf(issues, !isNonEmptyText(review.summary), "summary", "summary 不能为空");
-  pushIf(
+  requireIsoTimestamp(issues, review.createdAt, "createdAt", "createdAt 必须是合法时间戳");
+  requireNonEmptyText(issues, review.summary, "summary", "summary 不能为空");
+  requireOneOf(
     issues,
-    !isOneOf(review.recommendation, REVIEW_VERDICTS),
+    review.recommendation,
+    REVIEW_VERDICTS,
     "recommendation",
     `recommendation 必须是 ${REVIEW_VERDICTS.join("/")}`,
   );
@@ -283,13 +176,33 @@ export function validatePeerReview(review: PeerReview): ValidationIssue[] {
 
 export function validateReviewDecision(decision: ReviewDecision): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  pushIf(issues, !isNonEmptyText(decision.decisionId), "decisionId", "decisionId 不能为空");
-  pushIf(issues, !isNonEmptyText(decision.projectId), "projectId", "projectId 不能为空");
-  pushIf(issues, !isNonEmptyText(decision.draftId), "draftId", "draftId 不能为空");
-  pushIf(issues, !isIsoTimestamp(decision.decidedAt), "decidedAt", "decidedAt 必须是合法时间戳");
   pushIf(
     issues,
-    !isOneOf(decision.verdict, REVIEW_VERDICTS),
+    typeof decision.decisionId !== "string" || !isNonEmptyText(decision.decisionId),
+    "decisionId",
+    "decisionId 不能为空",
+  );
+  pushIf(
+    issues,
+    typeof decision.projectId !== "string" || !isNonEmptyText(decision.projectId),
+    "projectId",
+    "projectId 不能为空",
+  );
+  pushIf(
+    issues,
+    typeof decision.draftId !== "string" || !isNonEmptyText(decision.draftId),
+    "draftId",
+    "draftId 不能为空",
+  );
+  pushIf(
+    issues,
+    typeof decision.decidedAt !== "string" || !isIsoTimestamp(decision.decidedAt),
+    "decidedAt",
+    "decidedAt 必须是合法时间戳",
+  );
+  pushIf(
+    issues,
+    typeof decision.verdict !== "string" || !isOneOf(decision.verdict, REVIEW_VERDICTS),
     "verdict",
     `verdict 必须是 ${REVIEW_VERDICTS.join("/")}`,
   );
@@ -313,10 +226,34 @@ export function validateReviewDecision(decision: ReviewDecision): ValidationIssu
 
 export function validateReviewRound(round: ReviewRound): ValidationIssue[] {
   const issues: ValidationIssue[] = [];
-  pushIf(issues, !isNonEmptyText(round.roundId), "roundId", "roundId 不能为空");
-  pushIf(issues, !isNonEmptyText(round.projectId), "projectId", "projectId 不能为空");
-  pushIf(issues, !isNonEmptyText(round.draftId), "draftId", "draftId 不能为空");
-  pushIf(issues, !isIsoTimestamp(round.createdAt), "createdAt", "createdAt 必须是合法时间戳");
+  pushIf(
+    issues,
+    typeof round.roundId !== "string" || !isNonEmptyText(round.roundId),
+    "roundId",
+    "roundId 不能为空",
+  );
+  pushIf(
+    issues,
+    typeof round.projectId !== "string" || !isNonEmptyText(round.projectId),
+    "projectId",
+    "projectId 不能为空",
+  );
+  pushIf(
+    issues,
+    typeof round.draftId !== "string" || !isNonEmptyText(round.draftId),
+    "draftId",
+    "draftId 不能为空",
+  );
+  pushIf(
+    issues,
+    typeof round.createdAt !== "string" || !isIsoTimestamp(round.createdAt),
+    "createdAt",
+    "createdAt 必须是合法时间戳",
+  );
+  if (!Array.isArray(round.reviews)) {
+    issues.push({ field: "reviews", message: "reviews 必须是数组" });
+    return issues;
+  }
   for (const review of round.reviews) {
     issues.push(...validatePeerReview(review));
   }

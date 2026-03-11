@@ -3,6 +3,19 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { type PaperCompileResult } from "@deepscholar/contracts";
 
+const EXECFILE_MAX_BUFFER_BYTES = 20 * 1024 * 1024;
+
+function once<T extends unknown[]>(fn: (...args: T) => void): (...args: T) => void {
+  let done = false;
+  return (...args: T) => {
+    if (done) {
+      return;
+    }
+    done = true;
+    fn(...args);
+  };
+}
+
 function errorText(err: unknown): string {
   if (err instanceof Error) {
     return err.message;
@@ -39,16 +52,22 @@ export function createNodeCommandExecutor(): CommandExecutor {
     if (!file) {
       throw new Error("command 不能为空");
     }
-
-    return await new Promise<CommandResult>((resolve, reject) => {
+    return new Promise<CommandResult>((resolve, reject) => {
+      const finish = once(resolve);
+      const fail = once(reject);
       execFile(
         file,
         args,
-        { cwd: input.cwd, timeout: input.timeoutMs, encoding: "utf8" },
+        {
+          cwd: input.cwd,
+          timeout: input.timeoutMs,
+          encoding: "utf8",
+          maxBuffer: EXECFILE_MAX_BUFFER_BYTES,
+        },
         (err, stdout, stderr) => {
           const durationMs = Date.now() - start;
           if (!err) {
-            resolve({
+            finish({
               exitCode: 0,
               stdout: stdout ?? "",
               stderr: stderr ?? "",
@@ -63,15 +82,17 @@ export function createNodeCommandExecutor(): CommandExecutor {
             typeof err === "object" && err !== null && "code" in err && typeof err.code === "number"
               ? err.code
               : 1;
-          resolve({
+          const stderrText =
+            typeof stderr === "string" && stderr.trim().length > 0 ? stderr : errorText(err);
+          finish({
             exitCode,
             stdout: stdout ?? "",
-            stderr: stderr ?? errorText(err),
+            stderr: stderrText,
             timedOut,
             durationMs,
           });
         },
-      ).on("error", reject);
+      ).on("error", fail);
     });
   };
 }
@@ -108,6 +129,55 @@ async function persistCompileLog(logPath: string, content: string): Promise<void
   await fs.writeFile(logPath, content, "utf8");
 }
 
+type DockerMount = {
+  readonly hostMountDir: string;
+  readonly containerMountDir: string;
+  readonly containerWorkDir: string;
+};
+
+function resolveDockerMount(input: LatexCompileInput): DockerMount {
+  const draftsDir = path.dirname(input.draftDir);
+  if (path.basename(draftsDir) !== "drafts") {
+    return {
+      hostMountDir: input.draftDir,
+      containerMountDir: "/work",
+      containerWorkDir: "/work",
+    };
+  }
+
+  const paperDir = path.dirname(draftsDir);
+  const relativeDraftDir = path.relative(paperDir, input.draftDir).split(path.sep).join("/");
+  return {
+    hostMountDir: paperDir,
+    containerMountDir: "/paper",
+    containerWorkDir: `/paper/${relativeDraftDir}`,
+  };
+}
+
+function createDockerLatexCommand(params: {
+  readonly mount: DockerMount;
+  readonly image: string;
+  readonly jobName: string;
+  readonly mainFileName: string;
+}): readonly string[] {
+  return [
+    "docker",
+    "run",
+    "--rm",
+    "-v",
+    `${params.mount.hostMountDir}:${params.mount.containerMountDir}`,
+    "-w",
+    params.mount.containerWorkDir,
+    params.image,
+    "latexmk",
+    "-pdf",
+    "-interaction=nonstopmode",
+    "-halt-on-error",
+    `-jobname=${params.jobName}`,
+    params.mainFileName,
+  ] as const;
+}
+
 export function createDockerLatexCompiler(options: DockerLatexCompilerOptions): LatexCompiler {
   const image = options.image;
   if (!image.trim()) {
@@ -117,22 +187,8 @@ export function createDockerLatexCompiler(options: DockerLatexCompilerOptions): 
   async function compile(input: LatexCompileInput): Promise<PaperCompileResult> {
     const jobName = path.basename(input.compiledPdfPath, ".pdf");
     const mainFileName = path.basename(input.mainTexPath);
-    const dockerCommand = [
-      "docker",
-      "run",
-      "--rm",
-      "-v",
-      `${input.draftDir}:/work`,
-      "-w",
-      "/work",
-      image,
-      "latexmk",
-      "-pdf",
-      "-interaction=nonstopmode",
-      "-halt-on-error",
-      `-jobname=${jobName}`,
-      mainFileName,
-    ] as const;
+    const mount = resolveDockerMount(input);
+    const dockerCommand = createDockerLatexCommand({ mount, image, jobName, mainFileName });
 
     let result: CommandResult;
     try {

@@ -5,6 +5,7 @@ import {
   validatePeerReview,
   validateReviewDecision,
   validateReviewRound,
+  validateReviewRubric,
 } from "./index.ts";
 
 describe("review contracts", () => {
@@ -93,5 +94,16 @@ describe("review contracts", () => {
       decision,
     } as const;
     expect(validateReviewRound(round)).toEqual([]);
+  });
+
+  it("reports missing rubric dimensions instead of throwing", () => {
+    const full = rubric(7);
+    const broken = { ...full, dimensions: { ...full.dimensions } } as Record<string, unknown>;
+    const brokenDimensions = broken.dimensions as Record<string, unknown>;
+    delete brokenDimensions.originality;
+    broken.dimensions = brokenDimensions;
+
+    const issues = validateReviewRubric(broken as never);
+    expect(issues.map((issue) => issue.field)).toContain("dimensions.originality");
   });
 });

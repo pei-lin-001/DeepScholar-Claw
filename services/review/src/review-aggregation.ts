@@ -79,6 +79,16 @@ export function aggregateReviews(
     throw new Error(`PeerReview 校验失败，拒绝聚合: ${issues}`);
   }
 
+  const projectId = reviews[0].projectId;
+  const draftId = reviews[0].draftId;
+  for (const review of reviews) {
+    if (review.projectId !== projectId || review.draftId !== draftId) {
+      throw new Error(
+        `评审不属于同一项目/草稿: expected=${projectId}/${draftId} actual=${review.projectId}/${review.draftId} reviewId=${review.reviewId}`,
+      );
+    }
+  }
+
   const totalScores = reviews.map((review) => review.rubric.totalScore);
   const averageScore = mean(totalScores);
   const scoreSpread = spread(totalScores);

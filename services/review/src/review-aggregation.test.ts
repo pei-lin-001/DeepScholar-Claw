@@ -68,4 +68,11 @@ describe("review aggregation", () => {
     expect(result.decision.debateTriggered).toBe(true);
     expect(result.decision.scoreSpread).toBeGreaterThan(3);
   });
+
+  it("rejects mixed projectId/draftId reviews", () => {
+    const mixed = { ...review("r2", 7), projectId: "p2" };
+    expect(() =>
+      aggregateReviews([review("r1", 7), mixed, review("r3", 7)], { decisionId: "dec-6" }),
+    ).toThrow(/评审不属于同一项目\/草稿/);
+  });
 });

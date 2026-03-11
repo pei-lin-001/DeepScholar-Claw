@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { compilePaperDraft } from "./latex-compile.ts";
 import {
   createDockerLatexCompiler,
+  createNodeCommandExecutor,
   type CommandExecutor,
   type LatexCompiler,
 } from "./latex-compiler.ts";
@@ -144,5 +145,50 @@ describe("latex compile pipeline", () => {
         timeoutMs: 1_000,
       }),
     ).rejects.toThrow(/docker latex 编译无法启动/);
+  });
+
+  it("docker compiler mounts paperDir when draftDir is under paper/drafts", async () => {
+    const tmp = await createTempDir();
+    const paperDir = path.join(tmp, "paper");
+    const draftDir = path.join(paperDir, "drafts", "d1");
+    await fs.mkdir(draftDir, { recursive: true });
+    await fs.writeFile(
+      path.join(draftDir, "main.tex"),
+      "\\documentclass{article}\\begin{document}x\\end{document}",
+      "utf8",
+    );
+
+    let observed: readonly string[] | null = null;
+    const exec: CommandExecutor = async (input) => {
+      observed = input.command;
+      return { exitCode: 2, stdout: "", stderr: "failed", timedOut: false, durationMs: 1 };
+    };
+    const compiler = createDockerLatexCompiler({ exec, image: "texlive/texlive" });
+    await compiler.compile({
+      draftDir,
+      mainTexPath: path.join(draftDir, "main.tex"),
+      compiledPdfPath: path.join(draftDir, "compiled.pdf"),
+      compileLogPath: path.join(draftDir, "compile.log"),
+      timeoutMs: 1_000,
+    });
+
+    expect(observed?.join(" ")).toContain(`${paperDir}:/paper`);
+    expect(observed?.join(" ")).toContain("-w /paper/drafts/d1");
+  });
+
+  it("node executor keeps a readable error when stderr is empty", async () => {
+    const exec = createNodeCommandExecutor();
+    const result = await exec({ command: ["node", "-e", "process.exit(2)"], timeoutMs: 5_000 });
+    expect(result.exitCode).not.toBe(0);
+    expect(result.stderr.trim().length).toBeGreaterThan(0);
+  });
+
+  it("node executor maxBuffer prevents large output from failing", async () => {
+    const exec = createNodeCommandExecutor();
+    const LARGE_OUTPUT_BYTES = 2 * 1024 * 1024;
+    const script = `process.stdout.write('x'.repeat(${LARGE_OUTPUT_BYTES}))`;
+    const result = await exec({ command: ["node", "-e", script], timeoutMs: 5_000 });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout.length).toBeGreaterThanOrEqual(LARGE_OUTPUT_BYTES);
   });
 });
