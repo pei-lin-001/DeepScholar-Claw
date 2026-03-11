@@ -187,3 +187,72 @@
 
 - contracts + orchestrator + CLI 定向测试在 60 秒内通过（含 Step8->Step9 桥接测试）：
   - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/orchestrator/src/*.test.ts services/runner/src/*.test.ts packages/deepscholar-contracts/src/*.test.ts src/cli/*.test.ts`
+
+### 新增交付（Phase 3.5：Docker 沙箱 profile 强化）
+
+- 现在 Runner 不再只有“能跑”和“不能跑”两档，而是有了三种安全箱档位：
+  - `compat`：最兼容，尽量不影响运行（默认）。
+  - `hardened`：更像“上锁的箱子”，启用 `--read-only`、`no-new-privileges`、`cap-drop ALL`、`--tmpfs /tmp`、`--pids-limit` 等隔离参数。
+  - `gvisor`：在 hardened 基础上进一步启用 `--runtime runsc`（需要宿主机支持，失败会明确报错，不会悄悄退回）。
+- 现在 `stderr.log` 不再只是一堆 Docker 输出：
+  - Runner 会先写入阶段留痕（拉镜像/执行/清理等），让你能像看“飞行记录仪”一样定位卡点。
+- CLI 接入 `--sandbox-profile`：
+  - `openclaw research runner smoke ... --sandbox-profile hardened|gvisor`
+  - `openclaw research experiment run ... --sandbox-profile hardened|gvisor`
+
+### 本轮验证
+
+- Runner 定向单测在 60 秒内通过（覆盖 sandbox profile 参数生成）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts`
+
+### 新增交付（Phase 3.6：代码模板与落盘 bundle（把“实验”变成一包能执行的代码））
+
+- 新增最小 Python 模板 `python_smoke`：
+  - Runner 会把模板渲染成 `main.py` 落到 run 目录，并在容器里执行它。
+  - 脚本会把 `metrics.json` 写回 run 目录，让“产物”不再停留在屏幕输出。
+- 这让实验像“装订成册的作业包”：
+  - run 目录里既有日志，也有可执行入口文件和 metrics，复盘时不用再猜“到底跑的是什么代码”。
+
+### 本轮验证
+
+- Runner 定向单测在 60 秒内通过（覆盖模板渲染+落盘+执行闭环）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts`
+
+### 新增交付（Phase 3.8：runner diagnose + retry（让失败有“处方”））
+
+- 新增 `openclaw research runner diagnose`：
+  - 不再让你对着一锅日志发呆，而是把“这次为什么翻车”拆成三段式报告：
+    - `rootCause`：一句话说清主因（超时/环境/运行时报错/非零退出）并带最后阶段留痕。
+    - `suggestedFix`：告诉你下一步应该先重试还是先修代码。
+    - `policy`：结构化输出允许重试次数和动作类型，方便未来编排器自动化接入。
+- 新增 `openclaw research runner retry`：
+  - 每次 run 都会把执行请求写进 `run.json`（镜像、沙箱档位、模板/冒烟类型、超时等）。
+  - retry 会读取旧 run 的 `executionRequest`，克隆成一个全新的 runId 再跑一遍，并在新 run 上标注 `retryOfRunId` 指向原 run。
+
+### 本轮验证
+
+- runner + CLI 定向单测在 60 秒内通过（覆盖 diagnose/retry CLI）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts src/cli/*.test.ts`
+
+### 新增交付（Phase 3.7：CloudGPUProvider 骨架（先把接入接口长出来））
+
+- 定义 `CloudGPUProvider` 接口与 provider 列表，先把“云 GPU 平台”从文档名词变成可接入模块：
+  - AutoDL 配置加载：缺 `DEEPSCHOLAR_AUTODL_API_TOKEN` 会当场报错（不做假跑通）。
+  - RunPod 配置加载：缺 `DEEPSCHOLAR_RUNPOD_API_KEY` 会当场报错（不做假跑通）。
+- 这样后续对接真实 API 时，只需要在骨架里填实现，不需要改动 Runner 的主流程结构。
+
+### 本轮验证
+
+- Runner 定向单测在 60 秒内通过（覆盖云 provider 配置加载与显式错误）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts`
+
+### 新增交付（Phase 3.8：编排器熔断暂停（给 Step8 装上保险丝））
+
+- Step8 写回 run 结果时开始执行停止规则：
+  - 编排器会累积 `failedAttemptCount`（连续失败次数），并对照计划里的 `stopRules.maxFailedAttempts`。
+  - 达到阈值后自动把项目生命周期切到 `paused`，并写入带标识的审计动作，避免连续翻车把预算烧穿。
+
+### 本轮验证
+
+- orchestrator 定向单测在 60 秒内通过，且覆盖 “阈值=1 立即熔断” 与 “阈值=2 连续两次才熔断”：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/orchestrator/src/*.test.ts`

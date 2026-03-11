@@ -51,6 +51,44 @@ export type ExperimentExecutionRef =
       readonly notes: string;
     };
 
+export type DockerSandboxProfile = "compat" | "hardened" | "gvisor";
+
+export const DOCKER_SANDBOX_PROFILES: readonly DockerSandboxProfile[] = [
+  "compat",
+  "hardened",
+  "gvisor",
+];
+
+export function isDockerSandboxProfile(value: string): value is DockerSandboxProfile {
+  return isOneOf(value, DOCKER_SANDBOX_PROFILES);
+}
+
+export type ExperimentExecutionRequest =
+  | {
+      readonly driver: "docker";
+      readonly kind: "smoke";
+      readonly image: string;
+      readonly sandboxProfile: DockerSandboxProfile;
+      readonly holdSeconds: number;
+      readonly timeoutMs: number;
+    }
+  | {
+      readonly driver: "docker";
+      readonly kind: "template";
+      readonly image: string;
+      readonly sandboxProfile: DockerSandboxProfile;
+      readonly templateId: string;
+      readonly timeoutMs: number;
+    }
+  | {
+      readonly driver: "docker";
+      readonly kind: "program";
+      readonly image: string;
+      readonly sandboxProfile: DockerSandboxProfile;
+      readonly command: readonly string[];
+      readonly timeoutMs: number;
+    };
+
 export type ExperimentRun = {
   readonly runId: string;
   readonly projectId: string;
@@ -64,6 +102,8 @@ export type ExperimentRun = {
   readonly exitCode?: number;
   readonly failure?: ExperimentFailure;
   readonly execution?: ExperimentExecutionRef;
+  readonly executionRequest?: ExperimentExecutionRequest;
+  readonly retryOfRunId?: string;
   readonly artifacts: readonly ExperimentArtifact[];
   readonly metricsPath?: string;
 };
@@ -81,6 +121,8 @@ export type CreateExperimentRunInput = {
   readonly exitCode?: number;
   readonly failure?: ExperimentFailure;
   readonly execution?: ExperimentExecutionRef;
+  readonly executionRequest?: ExperimentExecutionRequest;
+  readonly retryOfRunId?: string;
   readonly artifacts?: readonly ExperimentArtifact[];
   readonly metricsPath?: string;
 };
@@ -99,6 +141,8 @@ export function createExperimentRun(input: CreateExperimentRunInput): Experiment
     exitCode: input.exitCode,
     failure: input.failure,
     execution: input.execution,
+    executionRequest: input.executionRequest,
+    retryOfRunId: input.retryOfRunId,
     artifacts: input.artifacts ?? [],
     metricsPath: input.metricsPath,
   };
@@ -128,6 +172,57 @@ function validateExperimentArtifact(artifact: ExperimentArtifact): ValidationIss
       "description 不能为空",
     );
   }
+  return issues;
+}
+
+function validateExecutionRequest(req: ExperimentExecutionRequest): ValidationIssue[] {
+  const issues: ValidationIssue[] = [];
+  pushIf(issues, req.driver !== "docker", "executionRequest.driver", "driver 必须是 docker");
+  pushIf(issues, !isNonEmptyText(req.image), "executionRequest.image", "image 不能为空");
+  pushIf(
+    issues,
+    !isDockerSandboxProfile(req.sandboxProfile),
+    "executionRequest.sandboxProfile",
+    `sandboxProfile 必须是 ${DOCKER_SANDBOX_PROFILES.join("/")}`,
+  );
+  pushIf(
+    issues,
+    !Number.isInteger(req.timeoutMs) || req.timeoutMs <= 0,
+    "executionRequest.timeoutMs",
+    "timeoutMs 必须是正整数",
+  );
+
+  if (req.kind === "smoke") {
+    pushIf(
+      issues,
+      !Number.isInteger(req.holdSeconds) || req.holdSeconds <= 0,
+      "executionRequest.holdSeconds",
+      "holdSeconds 必须是正整数",
+    );
+    return issues;
+  }
+  if (req.kind === "template") {
+    pushIf(
+      issues,
+      !isNonEmptyText(req.templateId),
+      "executionRequest.templateId",
+      "templateId 不能为空",
+    );
+    return issues;
+  }
+  if (req.kind === "program") {
+    pushIf(issues, req.command.length === 0, "executionRequest.command", "command 不能为空");
+    for (const [idx, item] of req.command.entries()) {
+      pushIf(
+        issues,
+        !isNonEmptyText(item),
+        `executionRequest.command[${idx}]`,
+        "command item 不能为空",
+      );
+    }
+    return issues;
+  }
+  pushIf(issues, true, "executionRequest.kind", "未知 kind");
   return issues;
 }
 
@@ -163,6 +258,12 @@ export function validateExperimentRun(run: ExperimentRun): ValidationIssue[] {
   }
   if (run.metricsPath !== undefined) {
     pushIf(issues, !isNonEmptyText(run.metricsPath), "metricsPath", "metricsPath 不能为空");
+  }
+  if (run.executionRequest) {
+    issues.push(...validateExecutionRequest(run.executionRequest));
+  }
+  if (run.retryOfRunId !== undefined) {
+    pushIf(issues, !isNonEmptyText(run.retryOfRunId), "retryOfRunId", "retryOfRunId 不能为空");
   }
   return issues;
 }

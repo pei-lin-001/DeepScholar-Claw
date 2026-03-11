@@ -48,6 +48,7 @@ export type ResearchProject = {
   readonly proposals: readonly IdeaProposal[];
   readonly approvedProposalId?: string;
   readonly pendingApprovalRequestIds: readonly string[];
+  readonly failedAttemptCount?: number;
   readonly latestRunId?: string;
   readonly latestRunStatus?: ExperimentRunStatus;
 };
@@ -86,6 +87,14 @@ export function validateResearchProject(project: ResearchProject): ValidationIss
   pushIf(issues, !isNonEmptyText(project.topic), "topic", "topic 不能为空");
   pushIf(issues, !isIsoTimestamp(project.createdAt), "createdAt", "createdAt 必须是合法时间戳");
   pushIf(issues, !isIsoTimestamp(project.updatedAt), "updatedAt", "updatedAt 必须是合法时间戳");
+  if (project.failedAttemptCount !== undefined) {
+    pushIf(
+      issues,
+      !Number.isInteger(project.failedAttemptCount) || project.failedAttemptCount < 0,
+      "failedAttemptCount",
+      "failedAttemptCount 必须是非负整数",
+    );
+  }
   if (project.latestRunId !== undefined) {
     pushIf(issues, !isNonEmptyText(project.latestRunId), "latestRunId", "latestRunId 不能为空");
   }
@@ -139,5 +148,6 @@ export function createResearchProject(input: {
     proposals: [],
     approvedProposalId: undefined,
     pendingApprovalRequestIds: [],
+    failedAttemptCount: 0,
   };
 }

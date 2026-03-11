@@ -1,97 +1,38 @@
 import type { Command } from "commander";
-import {
-  collectRunSummary,
-  createFsRunStore,
-  createNodeDockerClient,
-  type DockerClient,
-  type RunCollectedSnapshot,
-  type RunStore,
-} from "../../services/runner/src/index.js";
+import { collectRunSummary } from "../../services/runner/src/index.js";
+import { diagnoseRun } from "../../services/runner/src/index.js";
+import { retryRun } from "../../services/runner/src/index.js";
 import { abortRun, runSmokeExperiment } from "../../services/runner/src/index.js";
-import { defaultRuntime, type RuntimeEnv } from "../runtime.js";
 import { runCommandWithRuntime } from "./cli-utils.js";
-
-const DEFAULT_IMAGE = "alpine:3.20";
-const DEFAULT_HOLD_SECONDS = 1;
-const DEFAULT_TIMEOUT_SECONDS = 120;
-const DEFAULT_COLLECT_TAIL_BYTES = 4096;
-
-type RunnerCliRuntime = Pick<RuntimeEnv, "log" | "error" | "exit">;
-
-type RunnerCliDeps = {
-  readonly store: RunStore;
-  readonly docker: DockerClient;
-};
-
-type RunnerCliDepsFactory = (homeDir?: string) => RunnerCliDeps;
-
-function parseNonEmptyText(raw: unknown, label: string, fallback?: string): string {
-  if (raw === undefined || raw === null || raw === "") {
-    if (fallback !== undefined) {
-      return fallback;
-    }
-    throw new Error(`${label} 不能为空`);
-  }
-  if (typeof raw !== "string") {
-    throw new Error(`${label} 必须是字符串`);
-  }
-  const trimmed = raw.trim();
-  if (trimmed.length === 0) {
-    throw new Error(`${label} 不能为空`);
-  }
-  return trimmed;
-}
-
-function parsePositiveInt(raw: unknown, label: string, fallback: number): number {
-  if (raw === undefined || raw === null || raw === "") {
-    return fallback;
-  }
-  const n = typeof raw === "number" ? raw : typeof raw === "string" ? Number(raw) : NaN;
-  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
-    throw new Error(`${label} 必须是正整数`);
-  }
-  return n;
-}
-
-function printJsonOrSummary(
-  runtime: RunnerCliRuntime,
-  opts: Record<string, unknown>,
-  value: unknown,
-  summary: string,
-): void {
-  if (opts.json) {
-    runtime.log(JSON.stringify(value, null, 2));
-    return;
-  }
-  runtime.log(summary);
-}
-
-function printCollectedSummary(runtime: RunnerCliRuntime, summary: RunCollectedSnapshot): void {
-  runtime.log(`runId=${summary.run.runId} status=${summary.run.status}`);
-  runtime.log(`metrics=${JSON.stringify(summary.metrics)}`);
-  runtime.log("--- stdout (tail) ---");
-  runtime.log(summary.stdoutTail.trimEnd());
-  runtime.log("--- stderr (tail) ---");
-  runtime.log(summary.stderrTail.trimEnd());
-}
-
-const createDefaultDeps: RunnerCliDepsFactory = (homeDir?: string) => {
-  return {
-    store: createFsRunStore({ homeDir }),
-    docker: createNodeDockerClient(),
-  };
-};
+import {
+  DEFAULT_COLLECT_TAIL_BYTES,
+  DEFAULT_HOLD_SECONDS,
+  DEFAULT_IMAGE,
+  DEFAULT_SANDBOX_PROFILE,
+  DEFAULT_TIMEOUT_SECONDS,
+  createDefaultRunnerCliDeps,
+  defaultRunnerCliRuntime,
+  parseNonEmptyText,
+  parsePositiveInt,
+  parseSandboxProfile,
+  printCollectedSummary,
+  printJsonOrSummary,
+  type RunnerCliDepsFactory,
+  type RunnerCliRuntime,
+} from "./research-runner-cli-helpers.js";
 
 export function registerResearchRunnerCli(
   research: Command,
-  runtime: RunnerCliRuntime = defaultRuntime,
-  depsFactory: RunnerCliDepsFactory = createDefaultDeps,
+  runtime: RunnerCliRuntime = defaultRunnerCliRuntime,
+  depsFactory: RunnerCliDepsFactory = createDefaultRunnerCliDeps,
 ): void {
   const runner = research.command("runner").description("Local runner (Phase 3)");
   registerSmoke(runner, runtime, depsFactory);
   registerStatus(runner, runtime, depsFactory);
   registerList(runner, runtime, depsFactory);
   registerCollect(runner, runtime, depsFactory);
+  registerDiagnose(runner, runtime, depsFactory);
+  registerRetry(runner, runtime, depsFactory);
   registerAbort(runner, runtime, depsFactory);
 }
 
@@ -110,6 +51,11 @@ function registerSmoke(
     .option("--experiment-id <id>", "Experiment id (default: <projectId>-smoke)")
     .option("--home <dir>", "Override DeepScholar home directory (default: ~/.deepscholar)")
     .option("--image <name>", "Docker image", DEFAULT_IMAGE)
+    .option(
+      "--sandbox-profile <name>",
+      "Docker sandbox profile: compat | hardened | gvisor",
+      DEFAULT_SANDBOX_PROFILE,
+    )
     .option(
       "--hold-seconds <n>",
       "Sleep seconds inside container (for abort demo)",
@@ -142,6 +88,7 @@ async function runSmoke(
     planId,
     experimentId,
     image: parseNonEmptyText(opts.image, "image", DEFAULT_IMAGE),
+    sandboxProfile: parseSandboxProfile(opts.sandboxProfile),
     holdSeconds,
     timeoutMs: timeoutSeconds * 1000,
   });
@@ -256,6 +203,82 @@ async function runCollect(
     return;
   }
   printCollectedSummary(runtime, summary);
+}
+
+function registerDiagnose(
+  runner: Command,
+  runtime: RunnerCliRuntime,
+  depsFactory: RunnerCliDepsFactory,
+): void {
+  runner
+    .command("diagnose")
+    .description("Diagnose a run using log tails + metrics and suggest next action")
+    .requiredOption("--project-id <id>", "Project id")
+    .requiredOption("--run-id <id>", "Run id")
+    .option("--home <dir>", "Override DeepScholar home directory (default: ~/.deepscholar)")
+    .option("--tail-bytes <n>", "Tail bytes for stdout/stderr", String(DEFAULT_COLLECT_TAIL_BYTES))
+    .option("--json", "Output JSON", false)
+    .action(async (opts) => {
+      await runCommandWithRuntime(runtime, () => runDiagnose(opts, runtime, depsFactory));
+    });
+}
+
+async function runDiagnose(
+  opts: Record<string, unknown>,
+  runtime: RunnerCliRuntime,
+  depsFactory: RunnerCliDepsFactory,
+): Promise<void> {
+  const deps = depsFactory(opts.home as string | undefined);
+  const projectId = parseNonEmptyText(opts.projectId, "project-id");
+  const runId = parseNonEmptyText(opts.runId, "run-id");
+  const tailBytes = parsePositiveInt(opts.tailBytes, "tail-bytes", DEFAULT_COLLECT_TAIL_BYTES);
+
+  const diagnosis = await diagnoseRun({ store: deps.store, projectId, runId, tailBytes });
+  if (opts.json) {
+    runtime.log(JSON.stringify(diagnosis, null, 2));
+    return;
+  }
+  runtime.log(`runId=${diagnosis.runId} status=${diagnosis.status}`);
+  runtime.log(`rootCause=${diagnosis.rootCause}`);
+  runtime.log(`suggestedFix=${diagnosis.suggestedFix}`);
+  runtime.log(`policy=${JSON.stringify(diagnosis.policy)}`);
+}
+
+function registerRetry(
+  runner: Command,
+  runtime: RunnerCliRuntime,
+  depsFactory: RunnerCliDepsFactory,
+): void {
+  runner
+    .command("retry")
+    .description(
+      "Retry a failed/timeout/aborted run by cloning its executionRequest into a new run",
+    )
+    .requiredOption("--project-id <id>", "Project id")
+    .requiredOption("--run-id <id>", "Run id")
+    .option("--home <dir>", "Override DeepScholar home directory (default: ~/.deepscholar)")
+    .option("--json", "Output JSON", false)
+    .action(async (opts) => {
+      await runCommandWithRuntime(runtime, () => runRetry(opts, runtime, depsFactory));
+    });
+}
+
+async function runRetry(
+  opts: Record<string, unknown>,
+  runtime: RunnerCliRuntime,
+  depsFactory: RunnerCliDepsFactory,
+): Promise<void> {
+  const deps = depsFactory(opts.home as string | undefined);
+  const projectId = parseNonEmptyText(opts.projectId, "project-id");
+  const runId = parseNonEmptyText(opts.runId, "run-id");
+
+  const run = await retryRun(deps.store, deps.docker, { projectId, runId });
+  printJsonOrSummary(
+    runtime,
+    opts,
+    run,
+    `retry 完成: newRunId=${run.runId} status=${run.status} retryOf=${run.retryOfRunId ?? "(none)"}`,
+  );
 }
 
 function registerAbort(

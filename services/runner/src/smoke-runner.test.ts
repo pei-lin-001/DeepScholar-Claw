@@ -25,6 +25,15 @@ describe("smoke runner", () => {
         );
         return { exitCode: 0, signal: null, timedOut: false };
       },
+      runProgram: async (input) => {
+        await fs.appendFile(input.stdoutPath, `cmd=${input.command.join(" ")}\n`, "utf8");
+        await fs.writeFile(
+          path.join(input.runDir, "metrics.json"),
+          JSON.stringify({ health: 1 }, null, 2),
+          "utf8",
+        );
+        return { exitCode: 0, signal: null, timedOut: false };
+      },
       stop: async () => {},
     };
 
@@ -33,6 +42,7 @@ describe("smoke runner", () => {
       planId: "plan-1",
       experimentId: "exp-1",
       image: "alpine:3.20",
+      sandboxProfile: "compat",
       holdSeconds: 1,
       timeoutMs: 10_000,
     });
@@ -49,6 +59,7 @@ describe("smoke runner", () => {
 
     const docker: DockerClient = {
       runSmoke: async () => ({ exitCode: null, signal: null, timedOut: true }),
+      runProgram: async () => ({ exitCode: null, signal: null, timedOut: true }),
       stop: async () => {},
     };
 
@@ -57,6 +68,7 @@ describe("smoke runner", () => {
       planId: "plan-1",
       experimentId: "exp-1",
       image: "alpine:3.20",
+      sandboxProfile: "compat",
       holdSeconds: 1,
       timeoutMs: 1,
     });
@@ -85,6 +97,7 @@ describe("smoke runner", () => {
     const stopped: string[] = [];
     const docker: DockerClient = {
       runSmoke: async () => ({ exitCode: 0, signal: null, timedOut: false }),
+      runProgram: async () => ({ exitCode: 0, signal: null, timedOut: false }),
       stop: async (name) => {
         stopped.push(name);
       },

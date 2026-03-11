@@ -10,7 +10,10 @@ import {
 import {
   createFsRunStore,
   createNodeDockerClient,
+  DOCKER_SANDBOX_PROFILES,
+  isDockerSandboxProfile,
   type DockerClient,
+  type DockerSandboxProfile,
   type RunStore,
 } from "../../services/runner/src/index.js";
 import { runSmokeExperiment } from "../../services/runner/src/index.js";
@@ -20,6 +23,7 @@ import { runCommandWithRuntime } from "./cli-utils.js";
 const DEFAULT_IMAGE = "alpine:3.20";
 const DEFAULT_HOLD_SECONDS = 1;
 const DEFAULT_TIMEOUT_SECONDS = 120;
+const DEFAULT_SANDBOX_PROFILE = "compat";
 
 type ExperimentCliRuntime = Pick<RuntimeEnv, "log" | "error" | "exit">;
 
@@ -57,6 +61,14 @@ function parsePositiveInt(raw: unknown, label: string, fallback: number): number
     throw new Error(`${label} 必须是正整数`);
   }
   return n;
+}
+
+function parseSandboxProfile(raw: unknown): DockerSandboxProfile {
+  const value = parseNonEmptyText(raw, "sandbox-profile", DEFAULT_SANDBOX_PROFILE);
+  if (isDockerSandboxProfile(value)) {
+    return value;
+  }
+  throw new Error(`sandbox-profile 必须是 ${DOCKER_SANDBOX_PROFILES.join("/")}`);
 }
 
 function requireFrozenPlan(project: ResearchProject): string {
@@ -124,6 +136,11 @@ function registerExperimentRun(
     .option("--experiment-id <id>", "Experiment id (default: <projectId>-cloud-experiment)")
     .option("--image <name>", "Docker image", DEFAULT_IMAGE)
     .option(
+      "--sandbox-profile <name>",
+      "Docker sandbox profile: compat | hardened | gvisor",
+      DEFAULT_SANDBOX_PROFILE,
+    )
+    .option(
       "--hold-seconds <n>",
       "Sleep seconds inside container (for abort demo)",
       String(DEFAULT_HOLD_SECONDS),
@@ -166,6 +183,7 @@ async function runExperimentRun(
     planId,
     experimentId,
     image: parseNonEmptyText(opts.image, "image", DEFAULT_IMAGE),
+    sandboxProfile: parseSandboxProfile(opts.sandboxProfile),
     holdSeconds,
     timeoutMs: timeoutSeconds * 1000,
   });

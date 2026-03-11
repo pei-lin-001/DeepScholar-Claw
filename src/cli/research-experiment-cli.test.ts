@@ -106,6 +106,15 @@ describe("research experiment CLI", () => {
           await fs.appendFile(input.stdoutPath, "ok\n", "utf8");
           return { exitCode: 0, signal: null, timedOut: false };
         },
+        runProgram: async (input) => {
+          await fs.writeFile(
+            path.join(input.runDir, "metrics.json"),
+            JSON.stringify({ health: 1 }, null, 2),
+            "utf8",
+          );
+          await fs.appendFile(input.stdoutPath, `cmd=${input.command.join(" ")}\n`, "utf8");
+          return { exitCode: 0, signal: null, timedOut: false };
+        },
         stop: async () => {},
       };
       return { orchestrator, store, docker };

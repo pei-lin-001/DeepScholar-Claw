@@ -31,6 +31,15 @@ function createProgram(runtime: {
         await fs.appendFile(input.stdoutPath, "ok\n", "utf8");
         return { exitCode: 0, signal: null, timedOut: false };
       },
+      runProgram: async (input) => {
+        await fs.writeFile(
+          path.join(input.runDir, "metrics.json"),
+          JSON.stringify({ health: 1 }, null, 2),
+          "utf8",
+        );
+        await fs.appendFile(input.stdoutPath, `cmd=${input.command.join(" ")}\n`, "utf8");
+        return { exitCode: 0, signal: null, timedOut: false };
+      },
       stop: async (containerName: string) => {
         runtime.log(`stopped:${containerName}`);
       },
@@ -226,5 +235,131 @@ describe("research runner CLI", () => {
     );
     expect(aborted.runId).toBe("run-1");
     expect(aborted.status).toBe("aborted");
+  });
+
+  it("diagnoses a failed run and suggests next action", async () => {
+    const homeDir = await createTempDir("deepscholar-runner-cli-");
+    const logs: string[] = [];
+    const runtime = {
+      log: (...args: unknown[]) => {
+        const first = args[0];
+        logs.push(typeof first === "string" ? first : "");
+      },
+      error: vi.fn(),
+      exit: (code: number) => {
+        throw new Error(`exit ${code}`);
+      },
+    };
+
+    const store = createFsRunStore({ homeDir });
+    await store.create({
+      runId: "run-fail-1",
+      projectId: "p1",
+      planId: "plan-1",
+      experimentId: "exp-1",
+      status: "failed",
+    });
+    await store.save({
+      ...(await store.load("p1", "run-fail-1")),
+      status: "failed",
+      exitCode: 1,
+      failure: { type: "implementation", message: "crashed" },
+    });
+    const paths = store.pathsFor("p1", "run-fail-1");
+    await fs.writeFile(
+      paths.stderrPath,
+      ["[runner] stage=container.run image=alpine:3.20", "Traceback (most recent call last):"].join(
+        "\n",
+      ),
+      "utf8",
+    );
+    await fs.writeFile(paths.metricsPath, JSON.stringify({ health: 0 }, null, 2), "utf8");
+
+    const program = createProgram(runtime);
+    await program.parseAsync(
+      [
+        "research",
+        "runner",
+        "diagnose",
+        "--project-id",
+        "p1",
+        "--run-id",
+        "run-fail-1",
+        "--home",
+        homeDir,
+        "--json",
+      ],
+      { from: "user" },
+    );
+
+    const diagnosis = lastJson<{
+      rootCause: string;
+      suggestedFix: string;
+      policy: { nextAction: string; maxRetries: number };
+    }>(logs);
+    expect(diagnosis.rootCause).toContain("抛错");
+    expect(diagnosis.suggestedFix).toContain("修复");
+    expect(diagnosis.policy).toEqual({ nextAction: "debug_fix", maxRetries: 3 });
+  });
+
+  it("retries a failed run as a new runId", async () => {
+    const homeDir = await createTempDir("deepscholar-runner-cli-");
+    const logs: string[] = [];
+    const runtime = {
+      log: (...args: unknown[]) => {
+        const first = args[0];
+        logs.push(typeof first === "string" ? first : "");
+      },
+      error: vi.fn(),
+      exit: (code: number) => {
+        throw new Error(`exit ${code}`);
+      },
+    };
+
+    const store = createFsRunStore({ homeDir });
+    await store.create({
+      runId: "run-fail-2",
+      projectId: "p1",
+      planId: "plan-1",
+      experimentId: "exp-1",
+      status: "failed",
+    });
+    await store.save({
+      ...(await store.load("p1", "run-fail-2")),
+      status: "failed",
+      exitCode: 1,
+      failure: { type: "implementation", message: "crashed" },
+      executionRequest: {
+        driver: "docker",
+        kind: "smoke",
+        image: "alpine:3.20",
+        sandboxProfile: "compat",
+        holdSeconds: 1,
+        timeoutMs: 10_000,
+      },
+    });
+
+    const program = createProgram(runtime);
+    await program.parseAsync(
+      [
+        "research",
+        "runner",
+        "retry",
+        "--project-id",
+        "p1",
+        "--run-id",
+        "run-fail-2",
+        "--home",
+        homeDir,
+        "--json",
+      ],
+      { from: "user" },
+    );
+
+    const retried = lastJson<{ runId: string; status: string; retryOfRunId?: string }>(logs);
+    expect(retried.runId).toMatch(/^run-/);
+    expect(retried.runId).not.toBe("run-fail-2");
+    expect(retried.status).toBe("succeeded");
+    expect(retried.retryOfRunId).toBe("run-fail-2");
   });
 });

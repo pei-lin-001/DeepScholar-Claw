@@ -7,15 +7,21 @@ import {
 } from "@deepscholar/contracts";
 import type { DockerClient } from "./docker-client.ts";
 import type { DockerSandboxProfile } from "./docker-sandbox.ts";
+import {
+  isExperimentTemplateId,
+  renderExperimentTemplate,
+  writeTemplateFiles,
+  type ExperimentTemplateId,
+} from "./experiment-templates.ts";
 import type { RunStore } from "./run-store-fs.ts";
 
-export type SmokeRunOptions = {
+export type TemplateRunOptions = {
   readonly projectId: string;
   readonly planId: string;
   readonly experimentId: string;
+  readonly templateId: string;
   readonly image: string;
   readonly sandboxProfile: DockerSandboxProfile;
-  readonly holdSeconds: number;
   readonly timeoutMs: number;
   readonly retryOfRunId?: string;
 };
@@ -34,18 +40,19 @@ function setStatus(
   return { ...run, ...patch, status, updatedAt: nowIsoTimestamp() };
 }
 
-function executionRequest(options: SmokeRunOptions): ExperimentExecutionRequest {
+function executionRequest(options: TemplateRunOptions): ExperimentExecutionRequest {
+  const templateId = parseTemplateId(options.templateId);
   return {
     driver: "docker",
-    kind: "smoke",
+    kind: "template",
     image: options.image,
     sandboxProfile: options.sandboxProfile,
-    holdSeconds: options.holdSeconds,
+    templateId,
     timeoutMs: options.timeoutMs,
   };
 }
 
-function markRunning(run: ExperimentRun, name: string, options: SmokeRunOptions): ExperimentRun {
+function markRunning(run: ExperimentRun, name: string, options: TemplateRunOptions): ExperimentRun {
   return setStatus(run, "running", {
     startedAt: nowIsoTimestamp(),
     execution: { driver: "docker", containerName: name },
@@ -55,7 +62,8 @@ function markRunning(run: ExperimentRun, name: string, options: SmokeRunOptions)
     artifacts: [
       { path: "stdout.log", kind: "log", description: "docker stdout" },
       { path: "stderr.log", kind: "log", description: "docker stderr" },
-      { path: "metrics.json", kind: "metric", description: "smoke metrics" },
+      { path: "metrics.json", kind: "metric", description: "template metrics" },
+      { path: "main.py", kind: "file", description: "rendered template entry" },
     ],
   });
 }
@@ -78,10 +86,17 @@ function finalizeRun(
   });
 }
 
-export async function runSmokeExperiment(
+function parseTemplateId(templateId: string): ExperimentTemplateId {
+  if (isExperimentTemplateId(templateId)) {
+    return templateId;
+  }
+  throw new Error(`未知模板: ${templateId}`);
+}
+
+export async function runTemplateExperiment(
   store: RunStore,
   docker: DockerClient,
-  options: SmokeRunOptions,
+  options: TemplateRunOptions,
 ): Promise<ExperimentRun> {
   const runId = `run-${crypto.randomUUID()}`;
   const created = await store.create({
@@ -91,42 +106,25 @@ export async function runSmokeExperiment(
     experimentId: options.experimentId,
   });
 
+  const template = renderExperimentTemplate(parseTemplateId(options.templateId));
+  await writeTemplateFiles({ runDir: created.paths.runDir, files: template.files });
+
   const name = containerName(options.projectId, runId);
   const running = markRunning(created.run, name, options);
   await store.save(running);
 
-  const result = await docker.runSmoke({
+  const result = await docker.runProgram({
     containerName: name,
     image: options.image,
     runDir: created.paths.runDir,
     stdoutPath: created.paths.stdoutPath,
     stderrPath: created.paths.stderrPath,
-    holdSeconds: options.holdSeconds,
+    command: template.entrypoint,
     timeoutMs: options.timeoutMs,
     sandboxProfile: options.sandboxProfile,
   });
+
   const finalized = finalizeRun(running, { exitCode: result.exitCode, timedOut: result.timedOut });
   await store.save(finalized);
   return finalized;
-}
-
-export async function abortRun(
-  store: RunStore,
-  docker: DockerClient,
-  input: { readonly projectId: string; readonly runId: string },
-): Promise<ExperimentRun> {
-  const run = await store.load(input.projectId, input.runId);
-  if (run.status !== "running") {
-    throw new Error(`只能 abort running 状态的 run，当前状态: ${run.status}`);
-  }
-  if (run.execution?.driver !== "docker" || !run.execution.containerName) {
-    throw new Error("run 缺少 docker containerName，无法 abort");
-  }
-  await docker.stop(run.execution.containerName);
-  const aborted = setStatus(run, "aborted", {
-    finishedAt: nowIsoTimestamp(),
-    failure: { type: "infrastructure", message: "aborted by user" },
-  });
-  await store.save(aborted);
-  return aborted;
 }

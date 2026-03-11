@@ -4,12 +4,28 @@ import { createExperimentSpec } from "@deepscholar/contracts";
 
 export { classifyFailure, failurePolicy, type FailureSignal, type FailureType } from "./failure.ts";
 export {
+  CLOUD_GPU_PROVIDERS,
+  getCloudGpuProvider,
+  loadAutodlConfig,
+  loadRunpodConfig,
+  type CloudGPUProvider,
+  type CloudGPUProviderConfig,
+  type CloudGPUProviderId,
+} from "./cloud-gpu.ts";
+export {
   createNodeDockerClient,
   type DockerClient,
   type DockerRunResult,
 } from "./docker-client.ts";
+export {
+  DOCKER_SANDBOX_PROFILES,
+  isDockerSandboxProfile,
+  type DockerSandboxProfile,
+} from "./docker-sandbox.ts";
 export { createFsRunStore, type RunStore } from "./run-store-fs.ts";
 export { collectRunSummary, type RunCollectedSnapshot } from "./run-collector.ts";
+export { diagnoseRun, type RunDiagnosis, type RunDiagnosisPolicy } from "./run-diagnoser.ts";
+export { retryRun } from "./run-retry.ts";
 export {
   resolveDeepScholarHome,
   resolveRunnerProjectPaths,
@@ -19,6 +35,7 @@ export {
   type RunnerProjectPaths,
 } from "./runner-paths.ts";
 export { abortRun, runSmokeExperiment, type SmokeRunOptions } from "./smoke-runner.ts";
+export { runTemplateExperiment, type TemplateRunOptions } from "./template-runner.ts";
 
 export const runnerService: ServiceDescriptor = {
   id: "runner",
