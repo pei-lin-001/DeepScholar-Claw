@@ -1,0 +1,37 @@
+{
+  "name": "deepscholar-claw",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DeepScholar-Claw: 全自动深度学习科研闭环系统（文献→实验→论文→评审→审计）",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pei-lin-001/DeepScholar-Claw.git"
+  },
+  "type": "module",
+  "scripts": {
+    "deepscholar": "node --import tsx src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "format": "oxfmt --write",
+    "format:check": "oxfmt --check",
+    "lint": "oxlint --type-aware",
+    "check": "pnpm format:check && pnpm lint && pnpm build && pnpm test"
+  },
+  "dependencies": {
+    "commander": "^14.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.5",
+    "oxfmt": "0.36.0",
+    "oxlint": "^1.51.0",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "packageManager": "pnpm@9.15.5"
+}
+

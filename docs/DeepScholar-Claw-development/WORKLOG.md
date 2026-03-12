@@ -1,0 +1,316 @@
+# DeepScholar-Claw Worklog
+
+## 2026-03-11
+
+### 已完成
+
+- 建立 `services/` 层并纳入 workspace。
+- 建立 `packages/deepscholar-contracts/` 作为共享契约层。
+- 建立四个核心服务骨架：
+  - orchestrator
+  - paper-intel
+  - runner
+  - provenance
+- 为各服务写清“负责什么 / 不负责什么”。
+- 修正服务入口默认打印副作用，避免后续服务日志被动污染。
+- 为共享契约补齐核心对象与校验函数：
+  - 项目章程
+  - 研究计划
+  - 实验规格
+  - 结论账本
+- 为服务层补齐第一批真正工作的基础规则：
+  - 阶段状态机
+  - 预算门控
+  - 失败分型
+  - 结论账本汇总
+- 把 `packages/` 和 `services/` 纳入 Vitest 测试视野。
+- 跑通第二轮定向测试：7 个测试文件、13 条测试全部通过。
+
+### 新增交付（Phase 2 开始：计划冻结 + 证据账本升级）
+
+- 把“研究计划”从一张松散清单升级为可冻结、可审批、可校验的结构化对象：
+  - 计划草案（ResearchPlanDraft）用于承载假设、成功阈值、baseline、数据集、评估指标、预算 envelope、停止规则。
+  - 冻结计划（ResearchPlan）携带 `frozenAt/approvedBy/approvedAt`，为后续“不能见数据改故事”提供制度底座。
+- 把“结论账本”从“只写一句话+一个指标”升级为 Claim-Evidence Ledger：
+  - 结论（Claim）包含多个断言（Assertion），每个断言都必须绑定到证据（EvidenceBinding）。
+  - 证据明确记录：runGroup、metric、values、seedCount、可选 CI/p-value、以及对比型断言的 baselineComparison。
+  - 审计状态从 boolean 变为更贴近真实流程的 `draft/verified/disputed`，并要求 verified 断言必须带签名人与签名时间。
+- Provenance 服务的账本汇总不再只会“数个数”：
+  - 现在能输出断言级别的审计状态分布（verified/draft/disputed）。
+  - 还能标出证据缺口（比如强断言缺少统计支撑、对比断言缺 baselineComparison 等），用于后续在编排层做硬门控。
+
+### 本轮验证
+
+- contracts 与 provenance 的定向单测保持在 60 秒内通过（使用 `perl -e 'alarm 60; ...'` 约束）。
+
+### 新增交付（Spec Phase 1：文献模块完整跑通）
+
+- 现在你可以把“找论文”从一句空话变成一条可执行流水线：
+  - `pnpm deepscholar -- research literature search`：从 Semantic Scholar / OpenAlex 搜索论文元数据，输出列表（可 JSON）。
+  - `pnpm deepscholar -- research literature ingest`：把搜索结果做去重、质量过滤，然后落盘到 `~/.deepscholar/projects/<projectId>/literature/papers/`。
+- 现在你可以把 PDF 变成可追溯的结构化产物：
+  - `pnpm deepscholar -- research literature grobid`：把本地 PDF 送去 GROBID 解析，并把 TEI XML 保存到 `.../literature/parsed/`。
+  - 这一步的意义是：后续做引用核对、章节证据卡片、表格/图表抽取时，不再靠“看 PDF 猜结构”。
+- 现在你可以把“引用关系”落到知识图谱里：
+  - 在 `services/paper-intel` 内实现了 GraphStore 接口，并提供 Neo4j 适配器。
+  - `pnpm deepscholar -- research literature graph-build` 可以把已落盘的论文写入 Neo4j（paper/authors/cites/authoredBy）。
+- 现在你可以做第一版 Graph RAG 检索（局部 + 全局）：
+  - 全局：对本地落盘论文做可解释的词法检索排序（标题权重大，摘要次之）。
+  - 局部：对命中 paper 节点做邻域扩展（引用列表 + 作者），把“搜索命中”升级成“可继续追问的上下文包”。
+  - `pnpm deepscholar -- research literature query` 默认用 memory 图后端（本地快速），也可切到 `--graph-backend neo4j` 走真实图数据库。
+
+### 本轮验证
+
+- `services/paper-intel` 新增的 sources / ingest / grobid / graph / query 全部有单测覆盖，并保持 60 秒内通过。
+- DeepScholar CLI 的 subcommand 注册链路补了 research 的测试，确保 `pnpm deepscholar -- research ...` 不会只停留在“命令存在但点不动”。
+
+### 当前判断
+
+- 项目最重要的第一步不是做功能堆砌，而是把控制面和科研重逻辑切开。
+- 现在的骨架已经让后续开发可以按服务边界推进，而不是继续在大仓库里到处散点开工。
+- 第二轮之后，项目已经不只是“搭好了空车间”，而是给几条最关键的制度上了锁：
+  - 研究阶段不能乱跳
+  - 大额/高风险资源会被门控拦下
+  - 失败不再是一锅粥，而是开始分型
+  - 论文结论有没有盖章，系统已经能数得出来
+
+### 清理审计
+
+- 已检查当前仓库是否存在可以立即删除的 repo 追踪冗余文件。
+- 结论：本轮暂未发现“当前证据足以证明冗余且删除不会伤及控制面复用”的上游源码/文档。
+- 当前只保留“保守清理”策略：先建立替代结构，再按功能替换结果做定点裁剪。
+
+### 新增交付（Phase 2 完成：编排引擎 + 记忆系统 + 审批闭环）
+
+- 现在“研究项目”不再只是一个聊天话题，而是一套会落盘、会留痕、能复盘的工程对象：
+  - 项目元信息写入 `~/.deepscholar/projects/<projectId>/meta.json`
+  - 每次关键动作都会追加一条不可变审计记录到 `audit_log.jsonl`
+  - 每次关键动作都会落一个 checkpoint，为“中断可恢复”打底
+- 现在“科研流程”不再靠大家凭感觉推进：
+  - 12 步流程有明确的顺序与门控条件，想跳步会被当场拦下并给出原因
+  - Turn-based bus 让决策按顺序排队处理，避免多人同时推动把状态撞碎
+- 现在“预算审批”不再是口头承诺，而是能闭环的暂停开关：
+  - 发起申请后项目会进入 paused，并记录 pending requestId
+  - 人类批准后门控会盖章（budgetApproved=true），并在条件满足时推进到下一步
+  - 人类拒绝后项目保持 paused，审计日志保留拒绝人/时间/理由
+- 现在固定三大角色不再是“概念”，而是在编排层有清晰的身份牌子：
+  - 主编、审计、财务三类常驻 Bot 的使命/边界写死在固定定义里
+  - 同时支持注册“特战队 Bot 模板”，但仍受编排层步骤约束
+- DeepScholar CLI 控制面桥接完成（命令行先跑通闭环）：
+  - `pnpm deepscholar -- research start/status/plan freeze/budget request/approve/reject/resume/abort`
+  - 这让 Phase 2 能在不依赖 Telegram 的前提下先把制度骨架跑通
+
+### 本轮验证
+
+- Phase 2 定向测试在 60 秒内通过（包含 CLI 闭环测试）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/orchestrator/src/*.test.ts packages/deepscholar-contracts/src/*.test.ts src/cli/research-orchestrator-cli.test.ts`
+
+### 新增交付（Phase 2 加固补丁：写入一致性 + 证据留底 + 更严校验）
+
+- 编排器的“保存动作”从“先写了就算”升级成“要么全写成，要么当场撤回”：
+  - 当项目状态写入成功，但 checkpoint 或审计日志写入失败时，系统会把 `meta.json` 回滚到上一个稳定状态。
+  - 这解决的是一种最危险的半吊子状态：界面/状态看似推进了，但证据账本缺页，后续会越跑越乱。
+- 记忆压缩不再“只留摘要就把原话丢了”：
+  - 压缩 Working 记忆时，会先把原始条目追加到 Archival 层，再写入一条压缩摘要。
+  - 这样既能控住上下文长度，又不会让追责/复盘时“找不到原始材料”。
+- 预算门控从“事后发现超支”变成“入口直接拦下”：
+  - 当申请会导致超预算时，预算申请会被明确拒绝，并给出拒绝原因（例如超预算/超过 20% 阈值等）。
+- 审批状态加了“防二次盖章”的保护：
+  - 现在只有 `pending` 的申请才允许批准/拒绝，避免重复操作把审批链条弄脏。
+- 契约校验更接近真实世界的“脏数据”场景：
+  - `isIsoTimestamp` 增加格式前缀正则校验，避免 Date.parse 过度宽松。
+  - 多个关键枚举字段加入运行时校验（例如记忆层级、审批状态、断言类型等），坏数据会被明确指出而不是悄悄混过去。
+- CLI 输出统一走 `runtime.log`：
+  - 研究相关命令的输出不再散落在 `console.log`，而是走统一的 runtime logger，便于集中收集、审计与复盘。
+- 同步做了小范围架构整理：
+  - 将编排器引擎文件按职责拆分为多个小模块，确保单文件规模与函数规模都保持可维护。
+
+### 新增交付（Phase 3 开始：本地冒烟 Runner + Docker 沙箱闭环）
+
+- 现在“实验”终于有了一个最小但完整的落地形态：一辆能开、能停、能回看的小车
+  - 你可以发起一次冒烟实验，系统会生成一个 runId，并把所有产物按 runId 归档到 runs 目录。
+  - run 不是一段文字描述，而是一份结构化记录（run.json），包含状态、时间戳、退出码、失败摘要等信息。
+- 现在“跑起来”不再等于“在屏幕上打印一句 ok”
+  - 每个 run 目录至少会有 stdout.log、stderr.log、metrics.json，让复盘时有原始材料可查。
+- 现在 Runner 不再依赖“你机器上刚好装了什么”
+  - Docker 执行被抽象成可注入的依赖：单测不需要真实 Docker，也能证明状态流转与落盘行为正确。
+- DeepScholar CLI 已接入 Runner（Phase 3.1）
+  - `pnpm deepscholar -- research runner smoke/status/abort` 可用于本地冒烟闭环验证。
+
+### 新增交付（Phase 3.2：Runner 可诊断性 + Run 管理能力）
+
+- 现在“冒烟实验超时”不再只剩一个冷冰冰的 `timeout`：
+  - Runner 会在 `stderr.log` 里写清楚当前卡在什么阶段，例如 `stage=image.inspect` / `stage=image.pull` / `stage=container.run`。
+  - 这样当你看到“跑不完”时，不需要猜是镜像拉不下来、容器起不来，还是脚本本身卡住。
+- 现在你可以像翻“项目的实验台账”一样管理 runs：
+  - 新增 `pnpm deepscholar -- research runner list --project-id <id>`，能列出该项目下所有 run（默认最近的在前）。
+  - RunStore 的 list 输出按 `updatedAt` 倒序排序，结果稳定可复现，不会出现“同一批 runs 每次顺序不一样”的困扰。
+- abort/清理更像“刹车踏板”，而不是“赌运气”：
+  - Docker stop 对“容器已经消失/根本没创建成功”的情况做了幂等处理，不会因为 `No such container` 把 abort 链路直接打断。
+
+### 本轮验证
+
+- Runner 定向单测在 60 秒内通过：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts`
+- CLI runner 定向单测在 60 秒内通过（包含 list）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run src/cli/research-runner-cli.test.ts`
+
+### 新增交付（Phase 3.3：Runner collect（一键复盘汇总））
+
+- 现在你不需要再手动打开 `run.json`、`metrics.json`、`stdout.log`、`stderr.log` 四个文件来拼“事故现场”了：
+  - 新增 `collect` 会把 run 状态、metrics 内容、stdout/stderr 的尾部片段一次性打包输出。
+  - 你看一眼就能判断“这次是正常跑完了，还是卡住/报错了”，并且能直接看到最后的关键日志。
+- DeepScholar CLI 增加 `pnpm deepscholar -- research runner collect`：
+  - 支持 `--json` 输出结构化复盘包（方便后续给审计/编排器消费）。
+  - 也支持默认的人类可读输出（更适合你在终端里快速扫一遍）。
+
+### 本轮验证
+
+- Phase 3.3 定向单测（60 秒超时）通过：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts src/cli/research-runner-cli.test.ts`
+
+### 新增交付（Phase 3.4：编排器接入 Runner（Step8 发车并写回 Step9））
+
+- 现在 Step8 不再只是“停在那的一张牌子”，而是真的能发车跑一次实验：
+  - 新增 `pnpm deepscholar -- research experiment run`：它会先检查项目是否真的处在 `step8_cloud_experiment` 且预算已经盖章，然后才允许执行。
+  - 执行时会调用 Runner 跑一次 smoke（Docker 沙箱），拿到 runId 与最终状态。
+- 现在项目不会再“跑完了但系统不知道跑了什么”：
+  - ResearchProject 增加 `latestRunId/latestRunStatus`，把最近一次实验的编号与状态写进项目元数据里。
+  - 这为后续做证据绑定（runGroupId）与复盘定位提供了明确锚点。
+- 成功才允许进入 Step9，失败不会偷偷推进：
+  - 如果 run 成功：编排器会拉起 `experimentCompleted` 门闩，并把项目从 Step8 推进到 `step9_result_validation`。
+  - 如果 run 失败/超时/中止：只会把这次 run 记到账本里，项目仍停留在 Step8，避免“失败当成功”污染流程。
+- 全程留痕可追溯：
+  - 写回项目会同时写 checkpoint 与 audit log，保证“状态变化”和“证据记录”是一体的。
+
+### 本轮验证
+
+- contracts + orchestrator + CLI 定向测试在 60 秒内通过（含 Step8->Step9 桥接测试）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/orchestrator/src/*.test.ts services/runner/src/*.test.ts packages/deepscholar-contracts/src/*.test.ts src/cli/*.test.ts`
+
+### 新增交付（Phase 3.5：Docker 沙箱 profile 强化）
+
+- 现在 Runner 不再只有“能跑”和“不能跑”两档，而是有了三种安全箱档位：
+  - `compat`：最兼容，尽量不影响运行（默认）。
+  - `hardened`：更像“上锁的箱子”，启用 `--read-only`、`no-new-privileges`、`cap-drop ALL`、`--tmpfs /tmp`、`--pids-limit` 等隔离参数。
+  - `gvisor`：在 hardened 基础上进一步启用 `--runtime runsc`（需要宿主机支持，失败会明确报错，不会悄悄退回）。
+- 现在 `stderr.log` 不再只是一堆 Docker 输出：
+  - Runner 会先写入阶段留痕（拉镜像/执行/清理等），让你能像看“飞行记录仪”一样定位卡点。
+- CLI 接入 `--sandbox-profile`：
+  - `pnpm deepscholar -- research runner smoke ... --sandbox-profile hardened|gvisor`
+  - `pnpm deepscholar -- research experiment run ... --sandbox-profile hardened|gvisor`
+
+### 本轮验证
+
+- Runner 定向单测在 60 秒内通过（覆盖 sandbox profile 参数生成）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts`
+
+### 新增交付（Phase 3.6：代码模板与落盘 bundle（把“实验”变成一包能执行的代码））
+
+- 新增最小 Python 模板 `python_smoke`：
+  - Runner 会把模板渲染成 `main.py` 落到 run 目录，并在容器里执行它。
+  - 脚本会把 `metrics.json` 写回 run 目录，让“产物”不再停留在屏幕输出。
+- 这让实验像“装订成册的作业包”：
+  - run 目录里既有日志，也有可执行入口文件和 metrics，复盘时不用再猜“到底跑的是什么代码”。
+
+### 本轮验证
+
+- Runner 定向单测在 60 秒内通过（覆盖模板渲染+落盘+执行闭环）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts`
+
+### 新增交付（Phase 3.8：runner diagnose + retry（让失败有“处方”））
+
+- 新增 `pnpm deepscholar -- research runner diagnose`：
+  - 不再让你对着一锅日志发呆，而是把“这次为什么翻车”拆成三段式报告：
+    - `rootCause`：一句话说清主因（超时/环境/运行时报错/非零退出）并带最后阶段留痕。
+    - `suggestedFix`：告诉你下一步应该先重试还是先修代码。
+    - `policy`：结构化输出允许重试次数和动作类型，方便未来编排器自动化接入。
+- 新增 `pnpm deepscholar -- research runner retry`：
+  - 每次 run 都会把执行请求写进 `run.json`（镜像、沙箱档位、模板/冒烟类型、超时等）。
+  - retry 会读取旧 run 的 `executionRequest`，克隆成一个全新的 runId 再跑一遍，并在新 run 上标注 `retryOfRunId` 指向原 run。
+
+### 本轮验证
+
+- runner + CLI 定向单测在 60 秒内通过（覆盖 diagnose/retry CLI）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts src/cli/*.test.ts`
+
+### 新增交付（Phase 3.7：CloudGPUProvider 骨架（先把接入接口长出来））
+
+- 定义 `CloudGPUProvider` 接口与 provider 列表，先把“云 GPU 平台”从文档名词变成可接入模块：
+  - AutoDL 配置加载：缺 `DEEPSCHOLAR_AUTODL_API_TOKEN` 会当场报错（不做假跑通）。
+  - RunPod 配置加载：缺 `DEEPSCHOLAR_RUNPOD_API_KEY` 会当场报错（不做假跑通）。
+- 这样后续对接真实 API 时，只需要在骨架里填实现，不需要改动 Runner 的主流程结构。
+
+### 本轮验证
+
+- Runner 定向单测在 60 秒内通过（覆盖云 provider 配置加载与显式错误）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/runner/src/*.test.ts`
+
+### 新增交付（Phase 3.8：编排器熔断暂停（给 Step8 装上保险丝））
+
+- Step8 写回 run 结果时开始执行停止规则：
+  - 编排器会累积 `failedAttemptCount`（连续失败次数），并对照计划里的 `stopRules.maxFailedAttempts`。
+  - 达到阈值后自动把项目生命周期切到 `paused`，并写入带标识的审计动作，避免连续翻车把预算烧穿。
+
+### 本轮验证
+
+- orchestrator 定向单测在 60 秒内通过，且覆盖 “阈值=1 立即熔断” 与 “阈值=2 连续两次才熔断”：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/orchestrator/src/*.test.ts`
+
+### 新增交付（Phase 4：论文生成 + 评审（Step9-12 闭环））
+
+- 现在 Step9-12 不再停留在“计划里写了”，而是能真实推进的工程闭环：
+  - Step9 结果验证：编排器支持写回 `resultsVerified=true`，并推进到 Step10（写作阶段）。
+  - Step10 论文撰写：落盘一个“可复盘的论文包”，包含 `main.tex / refs.bib / draft.json`。
+  - Step11 模拟同行评审：3 评委结构化评审输入 + 汇总裁决 + 分歧门控（分差过大提示触发辩论）。
+  - Step12 人类终审：评审完成后编排器可推进到终审步骤，形成“给人看”的最终包。
+- 论文与评审契约（contracts）补齐到“能用、能校验、能测”：
+  - PaperDraft：章节结构、引用键、图表占位、编译产物路径等。
+  - PeerReview/ReviewDecision：7 维度量化打分表、裁决枚举、阈值结构。
+- 写作服务（services/writing）落地：
+  - LaTeX 渲染：生成通用 `article` 模板的 `main.tex`（会标注 venue，但不做静默降级）。
+  - refs.bib 占位：根据 `\\cite{}` 自动生成可编译的 BibTeX 占位条目。
+  - 引用一致性检查：从 `main.tex` 抽取 cite keys，并对照本地 `literature/papers/*.json` 的 `paperId` 做缺失报告（缺失会显式报错）。
+  - 可注入 LaTeX 编译器：提供 docker 编译实现与清晰失败日志落盘（不依赖本机 Docker/TeXLive 的单测 fake compiler 也能验证闭环）。
+- 评审服务（services/review）落地：
+  - 3 评委平均分裁决：按阈值输出 accept/minor/major/reject。
+  - 分歧门控：最高分-最低分 > 3 触发 debate 标记（后续可接辩论回合）。
+- 编排器 Phase4 bridge 补齐：
+  - 新增写回入口：`recordResultsVerified / recordDraftWritten / recordPeerReviewDecision`。
+  - 支持 major revision 回退：Step11 遇到大修会回到 Step10，并重置 `draftWritten=false`，避免“没重写也能直接再评审”。
+- CLI 闭环接入完成（研究控制面可跑通 Phase4）：
+  - `pnpm deepscholar -- research validate`（结果验证推进）
+  - `pnpm deepscholar -- research paper write/compile`（草稿包落盘 + 编译成功自动推进到评审）
+  - `pnpm deepscholar -- research review decide`（评审聚合 + 写回编排器推进/回退）
+
+### 本轮验证
+
+- Phase 4 定向测试在 60 秒超时闸门内通过（contracts + writing + review + orchestrator + CLI）：
+  - `perl -e 'alarm 60; exec @ARGV' pnpm exec vitest run services/orchestrator/src/*.test.ts services/runner/src/*.test.ts services/paper-intel/src/*.test.ts packages/deepscholar-contracts/src/*.test.ts src/cli/*.test.ts`
+
+### 新增交付（Phase 4 补完：分歧辩论机制）
+
+- 现在评审分歧不再只是“亮个灯提醒一下”：
+  - 当聚合结果 `debateTriggered=true` 时，项目会真的停在 `step11_peer_review`，并把生命周期切到 `paused`。
+  - 新增 `research review debate-resolve`，由人类/主席明确拍板：要么推进到 Step12，要么打回 Step10 重写。
+- 这意味着系统终于学会了“先停下争议，再重新落槌”，而不是带着分歧假装流程已经走完。
+
+### 新增交付（Phase 4 补完：学术可视化引擎 v1）
+
+- 现在 run 目录里的 `metrics.json` 可以直接长成论文里的证据片段：
+  - 新增 `research paper visualize`，从真实 run 指标生成 `table.tex` 和 `chart.tex`。
+  - 同时把 `visual-spec.json`、`source-metrics.json`、`render-visual.mjs` 一起落盘，保证每张图/表都能回溯来源，而不是手工截图塞进论文。
+  - 草稿 `results`（或指定 section）会自动嵌入 `\\input{...}` 与 `tab:/fig:` 锚点，编译出来的论文能直接引用这些证据。
+
+### 新增交付（Phase 5 补完：黄金路径 Runbook + CLI 入口修正）
+
+- 现在 Phase 5 文档里已经固定了一整条“从 0 到 1 跑完闭环”的命令链：
+  - 从创建项目、冻结计划、预算审批、Runner 执行，到写草稿、生成图表、编译、评审、终审收口，全都写成了可以照抄的命令序列。
+- 顺手修掉了一个真实 CLI 入口坑：
+  - `pnpm deepscholar -- research ...` 之前会把 Node 路径和 `--` 分隔符误喂给 commander，真实执行直接报错。
+  - 现在入口会先剥掉 Node 路径与 pnpm 的分隔符，所以 `pnpm deepscholar -- research ...` 和 `pnpm deepscholar research ...` 两种写法都能工作。
+
+### 本轮验证
+
+- `pnpm build`
+- `perl -e 'alarm 60; exec @ARGV' pnpm test`

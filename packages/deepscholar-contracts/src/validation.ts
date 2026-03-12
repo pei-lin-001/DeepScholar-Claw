@@ -1,0 +1,49 @@
+export type ValidationIssue = {
+  readonly field: string;
+  readonly message: string;
+};
+
+export function isNonEmptyText(value: string): boolean {
+  return value.trim().length > 0;
+}
+
+export function isOneOf<T extends string>(value: string, allowed: readonly T[]): value is T {
+  return (allowed as readonly string[]).includes(value);
+}
+
+export function isFiniteNumber(value: number): boolean {
+  return Number.isFinite(value);
+}
+
+export function isNonNegativeNumber(value: number): boolean {
+  return isFiniteNumber(value) && value >= 0;
+}
+
+export function isPositiveNumber(value: number): boolean {
+  return isFiniteNumber(value) && value > 0;
+}
+
+export function uniqueStrings(values: readonly string[]): string[] {
+  return [...new Set(values.map((value) => value.trim()).filter(Boolean))];
+}
+
+export function pushIf(
+  issues: ValidationIssue[],
+  invalid: boolean,
+  field: string,
+  message: string,
+): void {
+  if (invalid) {
+    issues.push({ field, message });
+  }
+}
+
+const SAFE_CHAR_REGEX = /[^a-zA-Z0-9._-]/g;
+
+export function safeIdForFileName(value: string, label: string): string {
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new Error(`${label} 不能为空`);
+  }
+  return trimmed.replaceAll(SAFE_CHAR_REGEX, "_");
+}

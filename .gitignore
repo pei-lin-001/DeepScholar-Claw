@@ -1,0 +1,13 @@
+node_modules/
+dist/
+coverage/
+.env
+.DS_Store
+
+# Local agent/runtime artifacts (never commit)
+.codex-tasks/
+.claude/
+.agents/
+.agent/
+memory/
+
